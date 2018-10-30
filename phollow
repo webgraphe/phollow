@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+
+use Psr\Http\Message\ServerRequestInterface;
+use Ratchet\Http\HttpServer;
+use Ratchet\Server\IoServer;
+use Ratchet\WebSocket\WsServer;
+use React\EventLoop\Factory;
+use React\Http\Response;
+use React\Http\Server;
+use Webgraphe\Phollow\Components\NotificationComponent;
+
+require 'vendor/autoload.php';
+
+$notification = new NotificationComponent;
+$dispatcher = FastRoute\simpleDispatcher(function (FastRoute\RouteCollector $routes) {
+    $routes->addRoute(
+        'GET',
+        '/',
+        function () {
+            // TODO Return single page application that consumes the other endpoints
+            return new Response(200, ['Content-Type' => 'text/plain'], 'Welcome');
+        }
+    );
+    // TODO Add routes to GET data; routes to POST errors and logs
+});
+
+$loop = Factory::create();
+
+$httpServer = new Server(function (ServerRequestInterface $request) use ($dispatcher) {
+    $routeInfo = $dispatcher->dispatch($request->getMethod(), $request->getUri()->getPath());
+
+    switch ($routeInfo[0]) {
+        case FastRoute\Dispatcher::NOT_FOUND:
+            return new Response(404, ['Content-Type' => 'text/plain'], 'Not found');
+        case FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
+            return new Response(405, ['Content-Type' => 'text/plain'], 'Method not allowed');
+        case FastRoute\Dispatcher::FOUND:
+        default:
+            return $routeInfo[1]($request, ... array_values($routeInfo[2]));
+    }
+});
+$httpServer->listen($httpSocket = new \React\Socket\Server('0.0.0.0:8080', $loop));
+echo 'Listening to HTTP requests on ' . str_replace('tcp:', 'http:', $httpSocket->getAddress()) . PHP_EOL;
+
+$webSocketServer = new IoServer(
+    new HttpServer(new WsServer($notification)),
+    $webSocketSocket = new \React\Socket\Server('0.0.0.0:8081', $loop),
+    $loop
+);
+echo 'Listening to WebSocket requests on ' . $webSocketServer->socket->getAddress() . PHP_EOL;
+
+$loop->run();
