@@ -4,13 +4,18 @@ namespace Webgraphe\Phollow\Components;
 
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
+use Webgraphe\Phollow\Tracer;
 
 class NotificationComponent implements MessageComponentInterface
 {
+    /** @var \SplObjectStorage */
     protected $clients;
+    /** @var Tracer */
+    private $tracer;
 
-    public function __construct()
+    public function __construct(Tracer $tracer)
     {
+        $this->tracer = $tracer;
         $this->clients = new \SplObjectStorage;
     }
 
@@ -26,7 +31,7 @@ class NotificationComponent implements MessageComponentInterface
     public function onOpen(ConnectionInterface $conn)
     {
         $this->clients->attach($conn);
-        echo "New connection from " . self::stringifyConnection($conn) . PHP_EOL;
+        $this->tracer->info("New connection from " . self::stringifyConnection($conn));
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
@@ -37,12 +42,12 @@ class NotificationComponent implements MessageComponentInterface
     public function onClose(ConnectionInterface $conn)
     {
         $this->clients->detach($conn);
-        echo "Connection closed " . self::stringifyConnection($conn) . PHP_EOL;
+        $this->tracer->info("Connection closed " . self::stringifyConnection($conn));
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e)
     {
-        echo "An error has occurred: {$e->getMessage()}\n";
+        $this->tracer->error($e->getMessage());
 
         $conn->close();
     }

@@ -1,53 +1,76 @@
 #!/usr/bin/env php
 <?php
 
-use Psr\Http\Message\ServerRequestInterface;
-use Ratchet\Http\HttpServer;
-use Ratchet\Server\IoServer;
-use Ratchet\WebSocket\WsServer;
-use React\EventLoop\Factory;
-use React\Http\Response;
-use React\Http\Server;
-use Webgraphe\Phollow\Components\NotificationComponent;
+use Webgraphe\Phollow\Application;
+use Webgraphe\Phollow\Configuration;
 
-require 'vendor/autoload.php';
+error_reporting(E_ALL);
+ini_set('display_errors', true);
 
-$notification = new NotificationComponent;
-$dispatcher = FastRoute\simpleDispatcher(function (FastRoute\RouteCollector $routes) {
-    $routes->addRoute(
-        'GET',
-        '/',
-        function () {
-            // TODO Return single page application that consumes the other endpoints
-            return new Response(200, ['Content-Type' => 'text/plain'], 'Welcome');
-        }
+if (version_compare('5.6.0', PHP_VERSION, '>')) {
+    fwrite(
+        STDERR,
+        sprintf(
+            'This version of Webgraphe Phollow is supported on PHP 5.6+' . PHP_EOL .
+            'You are using PHP %s (%s).' . PHP_EOL,
+            PHP_VERSION,
+            PHP_BINARY
+        )
     );
-    // TODO Add routes to GET data; routes to POST errors and logs
-});
 
-$loop = Factory::create();
+    die(1);
+}
 
-$httpServer = new Server(function (ServerRequestInterface $request) use ($dispatcher) {
-    $routeInfo = $dispatcher->dispatch($request->getMethod(), $request->getUri()->getPath());
+if (!ini_get('date.timezone')) {
+    ini_set('date.timezone', 'UTC');
+}
 
-    switch ($routeInfo[0]) {
-        case FastRoute\Dispatcher::NOT_FOUND:
-            return new Response(404, ['Content-Type' => 'text/plain'], 'Not found');
-        case FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
-            return new Response(405, ['Content-Type' => 'text/plain'], 'Method not allowed');
-        case FastRoute\Dispatcher::FOUND:
-        default:
-            return $routeInfo[1]($request, ... array_values($routeInfo[2]));
+foreach (array(__DIR__ . '/../../autoload.php', __DIR__ . '/../vendor/autoload.php', __DIR__ . '/vendor/autoload.php') as $file) {
+    if (file_exists($file)) {
+        define('PHOLLOW_COMPOSER_INSTALL', $file);
+
+        break;
     }
-});
-$httpServer->listen($httpSocket = new \React\Socket\Server('0.0.0.0:8080', $loop));
-echo 'Listening to HTTP requests on ' . str_replace('tcp:', 'http:', $httpSocket->getAddress()) . PHP_EOL;
+}
 
-$webSocketServer = new IoServer(
-    new HttpServer(new WsServer($notification)),
-    $webSocketSocket = new \React\Socket\Server('0.0.0.0:8081', $loop),
-    $loop
-);
-echo 'Listening to WebSocket requests on ' . $webSocketServer->socket->getAddress() . PHP_EOL;
+unset($file);
 
-$loop->run();
+if (!defined('PHOLLOW_COMPOSER_INSTALL')) {
+    fwrite(
+        STDERR,
+        implode(
+            PHP_EOL,
+            [
+                'You need to set up the project dependencies using Composer:',
+                null,
+                '    composer install',
+                null,
+                'You can learn all about Composer on https://getcomposer.org/.',
+                null
+            ]
+        )
+    );
+
+    die(1);
+}
+
+/** @noinspection PhpIncludeInspection */
+require PHOLLOW_COMPOSER_INSTALL;
+
+try {
+    $configuration = Configuration::fromGlobals();
+    if ($configuration->showHelp()) {
+        die($configuration->getUsage());
+    }
+    if ($configuration->showConfig()) {
+        die($configuration->getConfig());
+    }
+
+    $app = Application::create($configuration);
+    $app->run();
+} catch (\Exception $e) {
+    echo $e->getMessage() . PHP_EOL;
+    echo $e->getTraceAsString() . PHP_EOL;
+
+    die(1);
+}
