@@ -3,6 +3,7 @@
 
 use Webgraphe\Phollow\Application;
 use Webgraphe\Phollow\Configuration;
+use Webgraphe\Phollow\ParameterBag;
 
 error_reporting(E_ALL);
 ini_set('display_errors', true);
@@ -27,7 +28,7 @@ if (!ini_get('date.timezone')) {
 
 foreach (array(__DIR__ . '/../../autoload.php', __DIR__ . '/../vendor/autoload.php', __DIR__ . '/vendor/autoload.php') as $file) {
     if (file_exists($file)) {
-        define('PHOLLOW_COMPOSER_INSTALL', $file);
+        define('PHOLLOW_VENDOR_AUTOLOAD', $file);
 
         break;
     }
@@ -35,7 +36,7 @@ foreach (array(__DIR__ . '/../../autoload.php', __DIR__ . '/../vendor/autoload.p
 
 unset($file);
 
-if (!defined('PHOLLOW_COMPOSER_INSTALL')) {
+if (!defined('PHOLLOW_VENDOR_AUTOLOAD')) {
     fwrite(
         STDERR,
         implode(
@@ -55,19 +56,43 @@ if (!defined('PHOLLOW_COMPOSER_INSTALL')) {
 }
 
 /** @noinspection PhpIncludeInspection */
-require PHOLLOW_COMPOSER_INSTALL;
+require PHOLLOW_VENDOR_AUTOLOAD;
 
 try {
-    $configuration = Configuration::fromGlobals();
-    if ($configuration->showHelp()) {
-        die($configuration->getUsage());
-    }
-    if ($configuration->showConfig()) {
-        die($configuration->getConfig());
+    $bag = ParameterBag::fromGlobals();
+    $action = $bag->getArgument(0);
+
+    if (!$action || 'help' === $action) {
+        die(Application::usage());
     }
 
-    $app = Application::create($configuration);
-    $app->run();
+    $configurationOptions = $bag->getOptions(
+        function ($key) {
+            return isset(Configuration::DEFAULT_SETTINGS[$key]);
+        },
+        ARRAY_FILTER_USE_KEY
+    );
+
+    if ('generate-configuration' === $action) {
+        die(Configuration::fromArray($configurationOptions)->toIni() . PHP_EOL);
+    }
+
+    if ($configurationFile = $bag->getOption('configuration-file')) {
+        $configuration = Configuration::fromIniFile($configurationFile, $configurationOptions);
+    } elseif ($bag->hasOption('no-configuration') || !file_exists('phollow.ini')) {
+        $configuration = Configuration::fromArray($configurationOptions);
+    } else {
+        $configuration = Configuration::fromIniFile('phollow.ini', $configurationOptions);
+    }
+
+    if ('run' === $action) {
+        $app = Application::create($configuration);
+        $app->run();
+
+        die(0);
+    }
+
+    throw new \Exception("Unknown action '$action'");
 } catch (\Exception $e) {
     echo $e->getMessage() . PHP_EOL;
     echo $e->getTraceAsString() . PHP_EOL;

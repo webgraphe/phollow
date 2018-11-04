@@ -4,12 +4,12 @@ namespace Webgraphe\Phollow\Components;
 
 use Evenement\EventEmitter;
 use React\Stream\WritableStreamInterface;
-use Webgraphe\Phollow\Entities;
+use Webgraphe\Phollow\Documents;
 use Webgraphe\Phollow\Tracer;
 
 class WritableErrorStream extends EventEmitter implements WritableStreamInterface
 {
-    /** @var Entities\Error */
+    /** @var Documents\Error */
     private $errors = [];
     /** @var Tracer */
     private $tracer;
@@ -34,7 +34,7 @@ class WritableErrorStream extends EventEmitter implements WritableStreamInterfac
     public function write($data)
     {
         try {
-            $this->addError(Entities\Error::fromJson($data));
+            $this->addError(Documents\Error::fromJson($data));
         } catch (\Exception $e) {
             $this->tracer->error($e->getMessage());
         }
@@ -52,7 +52,7 @@ class WritableErrorStream extends EventEmitter implements WritableStreamInterfac
         // do nothing
     }
 
-    private function addError(Entities\Error $error)
+    private function addError(Documents\Error $error)
     {
         $this->tracer->info($error);
 

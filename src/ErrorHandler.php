@@ -2,81 +2,95 @@
 
 namespace Webgraphe\Phollow;
 
+use Webgraphe\Phollow\Contracts\ErrorFilterContract;
+use Webgraphe\Phollow\Documents\Error;
+
 class ErrorHandler
 {
-    /** @var int|null */
-    private $errorReporting;
-    /** @var array */
-    private $excludes = [];
-    /** @var array */
-    private $includes = [];
+    /** @var string|bool|null */
+    private $logFile;
+    /** @var string */
+    private $id;
+    /** @var ErrorFilterContract|callable */
+    private $errorFilter;
+    /** @var string|null */
+    private $basePath;
 
     /**
-     * @param $level
-     * @param $message
-     * @param $file
-     * @param $line
+     * @param string $logFile
+     */
+    protected function __construct($logFile)
+    {
+        $this->id = sha1(uniqid(getmypid(), true));
+        $this->logFile = $logFile;
+    }
+
+    /**
+     * @param string $logFile
+     * @return static
+     */
+    public static function create($logFile)
+    {
+        if (!file_exists($logFile)) {
+            trigger_error("Log file '$logFile' not found", E_USER_WARNING);
+            $logFile = false;
+        } elseif (!is_writable($logFile)) {
+            trigger_error("Log file '$logFile' is not writable", E_USER_WARNING);
+            $logFile = false;
+        } else {
+            $logFile = realpath($logFile);
+        }
+
+        return new static($logFile);
+    }
+
+    public function register()
+    {
+        if ($this->logFile) {
+            set_error_handler($this);
+            register_shutdown_function(
+                function () {
+                    if ($data = error_get_last()) {
+                        call_user_func($this, $data['type'], $data['message'], $data['file'], $data['line']);
+                    }
+                }
+            );
+        }
+    }
+
+    /**
+     * @param int $severity
+     * @param string $message
+     * @param string $file
+     * @param string $line
      * @return bool
      */
-    public function __invoke($level, $message, $file, $line)
+    public function __invoke($severity, $message, $file, $line)
     {
-        if (!$this->handlesLevel($level) || !$this->handlesFile($file)) {
+        if (0 === (error_reporting() & $severity)) {
             return false;
         }
 
-        $json = json_encode(Record::fromException(new \ErrorException($message, 0, $level, $file, $line)));
-
-        // TODO POST without waiting for response
-    }
-
-    /**
-     * Overrides global error reporting for this handler if not null.
-     *
-     * @param int|null $mask
-     */
-    public function setErrorReporting($mask)
-    {
-        $this->errorReporting = null === $mask ? null : (int)$mask;
-    }
-
-    /**
-     * @param string $pattern
-     * @param int $flags One of fnmatch() supported flags
-     * @see fnmatch()
-     */
-    public function excludes($pattern, $flags = 0)
-    {
-        $this->excludes[$pattern] = [$pattern, $flags];
-    }
-
-    /**
-     * @param string $pattern
-     * @param int $flags One of fnmatch() supported flags
-     * @see fnmatch()
-     */
-    public function includes($pattern, $flags = 0)
-    {
-        $this->includes[$pattern] = [$pattern, $flags];
-    }
-
-    /**
-     * @param string $file
-     * @return bool
-     */
-    public function handlesFile($file)
-    {
-        foreach ($this->excludes as $pattern) {
-            if (fnmatch($pattern[0], $file, $pattern[1])) {
-                return false;
-            }
+        if (!$this->logFile) {
+            return false;
         }
 
-        if ($this->includes) {
-            foreach ($this->includes as $pattern) {
-                if (fnmatch($pattern[0], $file, $pattern[1])) {
-                    return true;
-                }
-            }
+        $error = Error::create(
+            $message,
+            $severity,
+            $file,
+            $line,
+            debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS),
+            $this->basePath
+        );
+
+        if (!$this->filterError($error)) {
+            return false;
+        }
+
+        $json = json_encode($error->withSessionId($this->getId()));
+        if (!@file_put_contents($this->logFile, $json . PHP_EOL, FILE_APPEND)) {
+            $this->logFile = false;
 
             return false;
         }
@@ -85,13 +99,54 @@ class ErrorHandler
     }
 
     /**
-     * @param int
+     * @return string
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    /**
+     * @param int $errorReporting
+     * @param bool $displayErrors
+     * @return static
+     */
+    public function withErrorReporting($errorReporting, $displayErrors = false)
+    {
+        error_reporting($errorReporting);
+        ini_set('display_errors', $displayErrors);
+
+        return $this;
+    }
+
+    /**
+     * @param ErrorFilterContract|callable $filter
+     * @return static
+     */
+    public function withErrorFilter(callable $filter)
+    {
+        $this->errorFilter = $filter;
+
+        return $this;
+    }
+
+    /**
+     * @param string $basePath
+     * @return static
+     */
+    public function withBasePath($basePath)
+    {
+        $this->basePath = realpath($basePath);
+
+        return $this;
+    }
+
+    /**
+     * @param Error $error
      * @return bool
      */
-    public function handlesLevel($level)
+    private function filterError(Error $error)
     {
-        $errorReporting = null !== $this->errorReporting ? $this->errorReporting : error_reporting();
-
-        return (bool)($errorReporting & $level);
+        return $this->errorFilter ? (bool)call_user_func($this->errorFilter, $error) : true;
     }
 }

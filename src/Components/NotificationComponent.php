@@ -25,6 +25,7 @@ class NotificationComponent implements MessageComponentInterface
      */
     public static function stringifyConnection(ConnectionInterface $conn)
     {
+        /** @noinspection PhpUndefinedFieldInspection */
         return $conn->remoteAddress;
     }
 

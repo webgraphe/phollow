@@ -33,6 +33,44 @@ class Application
     /** @var Tracer */
     private $tracer;
 
+    public static function usage()
+    {
+        $usage = <<<USAGE
+    ____  __          ____             
+   / __ \/ /_  ____  / / /___ _      __
+  / /_/ / __ \/ __ \/ / / __ \ | /| / /
+ / ____/ / / / /_/ / / / /_/ / |/ |/ / 
+/_/   /_/ /_/\____/_/_/\____/|__/|__/  
+
+Usage:
+    phollow COMMAND [OPTIONS] [ARGUMENTS]
+
+  Available commands:
+    help ···················· Displays usage information
+    generate-configuration ·· Generates an INI configuration (supports option overrides)
+    run ····················· Runs the Webgraphe Phollow server
+
+  Options:
+    Global:
+      --configuration-file=FILE ·· Loads configuration from given INI file (default=phollow.ini)
+      --no-configuration ········· Skips loading configuration file
+    Command options:
+
+USAGE;
+        $maxLength = 0;
+        array_map(
+            function ($key) use (&$maxLength) {
+                $maxLength = max($maxLength, strlen($key));
+            },
+            array_keys(Configuration::SETTING_DESCRIPTIONS)
+        );
+        foreach (Configuration::SETTING_DESCRIPTIONS as $key => $value) {
+            $usage .= '      --' . $key . ' ··' . str_repeat('·', $maxLength - strlen($key)) . ' ' . $value . PHP_EOL;
+        }
+
+        return $usage . PHP_EOL;
+    }
+
     public function __construct(Configuration $configuration = null)
     {
         $this->configuration = $configuration ?: new Configuration;
@@ -51,6 +89,9 @@ class Application
         return $application;
     }
 
+    /**
+     * @return int
+     */
     public function run()
     {
         $this->tracer->setup("\rRunning loop");
@@ -61,6 +102,8 @@ class Application
         $this->tracer->setup("Webgraphe Phollow server is ready - Press CTRL-C to stop");
 
         $this->loop->run();
+
+        return 0;
     }
 
     /**
@@ -68,6 +111,9 @@ class Application
      */
     private function setup()
     {
+        $this->tracer->setup($this->configuration->getSummary());
+        $this->tracer->info(str_replace(PHP_EOL, PHP_EOL . '  ', '  ' . $this->configuration->toIni()));
+
         $this->loop = $this->prepareLoop();
 
         $this->errorLogFile = $this->prepareErrorLogFile();
@@ -76,7 +122,7 @@ class Application
         $this->pipeErrorStreams($this->readableErrorStream, $this->writableErrorStream);
 
         $this->httpSocket = $this->prepareHttpSocket($this->loop, $this->configuration->getHttpPort());
-        $this->httpRequestHandler = $this->prepareHttpRequestHandler($this->configuration->getOrigin());
+        $this->httpRequestHandler = $this->prepareHttpRequestHandler($this->configuration->getServerOrigin());
         $this->httpServer = $this->prepareHttpServer($this->httpSocket, $this->httpRequestHandler);
 
         $this->notificationComponent = $this->prepareNotificationComponent();
@@ -85,18 +131,32 @@ class Application
             $this->webSocketSocket,
             $this->loop,
             $this->notificationComponent,
-            $this->configuration->getOrigin()
+            $this->configuration->getServerOrigin()
         );
     }
 
-    private function tearDown()
+    /**
+     * @param int|null $signal
+     * @throws \Exception
+     */
+    private function tearDown($signal = null)
     {
-        $this->tracer->setup("\rStopping loop");
+        if ($signal) {
+            $this->tracer->notice("\rProcess control signal ($signal) captured");
+        }
+
+        $this->tracer->warning("\rShutting down");
+
+        $this->tracer->setup("Stopping loop");
         $this->loop and $this->loop->stop();
 
-        $this->tracer->setup("\rClosing streams");
+        $this->tracer->setup("Closing streams");
         $this->readableErrorStream and $this->readableErrorStream->close();
         $this->writableErrorStream and $this->writableErrorStream->close();
+
+        $this->tracer->setup("Flushing log file");
+        $errorLogFile = $this->configuration->getErrorLogFile();
+        $this->unlinkFile($errorLogFile);
     }
 
     /**
@@ -222,13 +282,15 @@ class Application
     {
         $this->tracer->setup("Preparing loop");
 
+        $tearDown = function() {
+            $this->tearDown(...func_get_args());
+        };
+
         $loop = \React\EventLoop\Factory::create();
-        $loop->addSignal(
-            SIGINT,
-            function () {
-                $this->tearDown();
-            }
-        );
+        if (extension_loaded('pcntl')) {
+            $loop->addSignal(constant('SIGINT'), $tearDown);
+            $loop->addSignal(constant('SIGTERM'), $tearDown);
+        }
 
         return $loop;
     }
