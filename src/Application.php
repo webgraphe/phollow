@@ -295,6 +295,9 @@ USAGE;
         return $loop;
     }
 
+    /**
+     * @return Components\WritableErrorStream
+     */
     private function prepareWritableErrorStream()
     {
         $this->tracer->setup("Preparing writable error stream; " . Components\WritableErrorStream::class);
@@ -332,9 +335,10 @@ USAGE;
     /**
      * @param string $origin
      * @return HttpRequestHandler
+     * @throws \Exception
      */
     private function prepareHttpRequestHandler($origin = '')
     {
-        return new HttpRequestHandler($this->tracer->withComponent('HTTP'), $origin);
+        return HttpRequestHandler::create($this->tracer->withComponent('HTTP'), $origin);
     }
 }
