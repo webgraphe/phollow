@@ -12,6 +12,7 @@ class HttpRequestHandler
         'css' => 'text/css',
         'htm' => 'text/html',
         'html' => 'text/html',
+        'ico' => 'image/x-icon',
         'js' => 'application/javascript',
         'json' => 'application/json',
         'map' => 'text/plain'
@@ -38,7 +39,7 @@ class HttpRequestHandler
         $this->origin = $origin;
         $this->dispatcher = \FastRoute\simpleDispatcher(
             function (\FastRoute\RouteCollector $routes) {
-                // TODO Add data routes
+                // TODO Add data and template scripts routes
             }
         );
     }
@@ -230,7 +231,7 @@ class HttpRequestHandler
         $message = "$code $method $path";
 
         if ($code - 200 < 100) {
-            $this->tracer->info($message);
+            $this->tracer->notice($message);
         } elseif ($code - 300 < 100) {
             $this->tracer->warning($message);
         } else {
