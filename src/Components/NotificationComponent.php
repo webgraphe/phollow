@@ -4,11 +4,12 @@ namespace Webgraphe\Phollow\Components;
 
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
+use Webgraphe\Phollow\Documents;
 use Webgraphe\Phollow\Tracer;
 
 class NotificationComponent implements MessageComponentInterface
 {
-    /** @var \SplObjectStorage */
+    /** @var \SplObjectStorage|ConnectionInterface[] */
     protected $clients;
     /** @var Tracer */
     private $tracer;
@@ -51,5 +52,12 @@ class NotificationComponent implements MessageComponentInterface
         $this->tracer->error($e->getMessage());
 
         $conn->close();
+    }
+
+    public function notifyErrorAdded(Documents\Error $error)
+    {
+        foreach ($this->clients as $client) {
+            $client->send(json_encode($error));
+        }
     }
 }

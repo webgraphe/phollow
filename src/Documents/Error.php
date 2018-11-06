@@ -2,27 +2,15 @@
 
 namespace Webgraphe\Phollow\Documents;
 
-class Error implements \JsonSerializable
-{
-    /** @var string[] */
-    const E_STRINGS = [
-        E_ERROR => 'ERROR',
-        E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
-        E_WARNING => 'WARNING',
-        E_PARSE => 'PARSE',
-        E_NOTICE => 'NOTICE',
-        E_STRICT => 'STRICT',
-        E_DEPRECATED => 'DEPRECATED',
-        E_CORE_ERROR => 'CORE_ERROR',
-        E_CORE_WARNING => 'CORE_WARNING',
-        E_COMPILE_ERROR => 'COMPILE_ERROR',
-        E_COMPILE_WARNING => 'COMPILE_WARNING',
-        E_USER_ERROR => 'USER_ERROR',
-        E_USER_WARNING => 'USER_WARNING',
-        E_USER_NOTICE => 'USER_NOTICE',
-        E_USER_DEPRECATED => 'USER_DEPRECATED',
-    ];
+use Webgraphe\Phollow\Contracts\ErrorContract;
 
+class Error implements ErrorContract
+{
+    /** @var int */
+    private static $nextId = 0;
+
+    /** @var int */
+    private $id;
     /** @var string */
     private $message;
     /** @var int */
@@ -44,6 +32,7 @@ class Error implements \JsonSerializable
 
     public function __construct()
     {
+        $this->id = self::$nextId++;
         $this->host = self::arrayGet($_SERVER, 'HOSTNAME');
         $this->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR');
         $this->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR');
@@ -93,7 +82,7 @@ class Error implements \JsonSerializable
      */
     protected static function arrayGet($data, $key, $default = null)
     {
-        return is_array($data) || ($data instanceof \ArrayAccess) && isset($data[$key]) ? $data[$key] : $default;
+        return (is_array($data) || $data instanceof \ArrayAccess) && isset($data[$key]) ? $data[$key] : $default;
     }
 
     /**
@@ -188,6 +177,7 @@ class Error implements \JsonSerializable
     public function toArray()
     {
         return [
+            'id' => $this->id,
             'session' => $this->sessionId,
             'message' => $this->message,
             'severity' => $this->severity,
@@ -278,5 +268,13 @@ class Error implements \JsonSerializable
     public function getSessionId()
     {
         return $this->sessionId;
+    }
+
+    /**
+     * @return int
+     */
+    public function getId()
+    {
+        return $this->id;
     }
 }

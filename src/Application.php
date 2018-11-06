@@ -5,6 +5,7 @@ namespace Webgraphe\Phollow;
 use Ratchet\ComponentInterface;
 use React\EventLoop\LoopInterface;
 use Webgraphe\Phollow\Components\HttpRequestHandler;
+use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
 
 class Application
 {
@@ -41,6 +42,8 @@ class Application
   / /_/ / __ \/ __ \/ / / __ \ | /| / /
  / ____/ / / / /_/ / / / /_/ / |/ |/ / 
 /_/   /_/ /_/\____/_/_/\____/|__/|__/  
+
+Version 1.0.0
 
 Usage:
     phollow COMMAND [OPTIONS] [ARGUMENTS]
@@ -122,7 +125,10 @@ USAGE;
         $this->pipeErrorStreams($this->readableErrorStream, $this->writableErrorStream);
 
         $this->httpSocket = $this->prepareHttpSocket($this->loop, $this->configuration->getHttpPort());
-        $this->httpRequestHandler = $this->prepareHttpRequestHandler($this->configuration->getServerOrigin());
+        $this->httpRequestHandler = $this->prepareHttpRequestHandler(
+            $this->writableErrorStream,
+            $this->configuration->getServerOrigin()
+        );
         $this->httpServer = $this->prepareHttpServer($this->httpSocket, $this->httpRequestHandler);
 
         $this->notificationComponent = $this->prepareNotificationComponent();
@@ -132,6 +138,12 @@ USAGE;
             $this->loop,
             $this->notificationComponent,
             $this->configuration->getServerOrigin()
+        );
+
+        $this->writableErrorStream->onErrorAdded(
+            function (Documents\Error $error) {
+                $this->notificationComponent->notifyErrorAdded($error);
+            }
         );
     }
 
@@ -333,12 +345,13 @@ USAGE;
     }
 
     /**
+     * @param ErrorCollectionContract $errorCollection
      * @param string $origin
      * @return HttpRequestHandler
      * @throws \Exception
      */
-    private function prepareHttpRequestHandler($origin = '')
+    private function prepareHttpRequestHandler(ErrorCollectionContract $errorCollection, $origin = '')
     {
-        return HttpRequestHandler::create($this->tracer->withComponent('HTTP'), $origin);
+        return HttpRequestHandler::create($errorCollection, $this->tracer->withComponent('HTTP'), $origin);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Webgraphe\Phollow\Components;
 
+use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
 use Webgraphe\Phollow\Tracer;
 
 class HttpRequestHandler
@@ -18,6 +19,8 @@ class HttpRequestHandler
         'map' => 'text/plain'
     ];
 
+    /** @var ErrorCollectionContract */
+    private $errorCollection;
     /** @var Tracer */
     private $tracer;
     /** @var \FastRoute\Dispatcher */
@@ -28,36 +31,44 @@ class HttpRequestHandler
     private $documentRoot;
 
     /**
+     * @param ErrorCollectionContract $errorCollection
      * @param Tracer $tracer
      * @param string $documentRoot
      * @param string $origin
      */
-    protected function __construct(Tracer $tracer, $documentRoot, $origin = '')
+    protected function __construct(ErrorCollectionContract $errorCollection, Tracer $tracer, $documentRoot, $origin = '')
     {
+        $this->errorCollection = $errorCollection;
         $this->documentRoot = $documentRoot;
         $this->tracer = $tracer;
         $this->origin = $origin;
         $this->dispatcher = \FastRoute\simpleDispatcher(
             function (\FastRoute\RouteCollector $routes) {
-                // TODO Add data and template scripts routes
+                $routes->addGroup(
+                    '/data',
+                    function (\FastRoute\RouteCollector $routes) {
+                        $routes->get('/errors[/{id:\d+}]', $this->getDataErrors());
+                    }
+                );
             }
         );
     }
 
     /**
+     * @param ErrorCollectionContract $errorCollection
      * @param Tracer $tracer
      * @param string $origin
      * @return static
      * @throws \Exception
      */
-    public static function create(Tracer $tracer, $origin = '')
+    public static function create(ErrorCollectionContract $errorCollection, Tracer $tracer, $origin = '')
     {
         $documentRoot = realpath(self::DOCUMENT_ROOT);
         if (!$documentRoot) {
             throw new \Exception("Can't resolve document root " . self::DOCUMENT_ROOT);
         }
 
-        $instance = new static($tracer, $documentRoot, $origin);
+        $instance = new static($errorCollection, $tracer, $documentRoot, $origin);
 
         return $instance;
     }
@@ -188,6 +199,21 @@ class HttpRequestHandler
 
     /**
      * @param int $statusCode
+     * @param \JsonSerializable|mixed $data Data to encode as JSON
+     * @param array $headers
+     * @return \React\Http\Response
+     */
+    private static function jsonResponse($statusCode, $data = null, array $headers = [])
+    {
+        return static::httpResponse(
+            $statusCode,
+            null !== $data ? json_encode($data) : null,
+            array_merge($headers, ['Content-type' => 'application/json'])
+        );
+    }
+
+    /**
+     * @param int $statusCode
      * @param string $body
      * @param array $headers
      * @return \React\Http\Response
@@ -239,5 +265,23 @@ class HttpRequestHandler
         }
 
         return $response;
+    }
+
+    /**
+     * @return \Closure
+     */
+    private function getDataErrors()
+    {
+        return function (\Psr\Http\Message\ServerRequestInterface $request, $id = null) {
+            if (null === $id) {
+                return static::jsonResponse(200, ['data' => $this->errorCollection->getErrors()]);
+            }
+
+            if ($error = $this->errorCollection->getError($id)) {
+                return static::jsonResponse(200, ['data' => $error]);
+            }
+
+            return static::jsonResponse(404);
+        };
     }
 }
