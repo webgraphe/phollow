@@ -54,7 +54,7 @@ class NotificationComponent implements MessageComponentInterface
         $conn->close();
     }
 
-    public function notifyErrorAdded(Documents\Error $error)
+    public function notifyNewError(Documents\Error $error)
     {
         foreach ($this->clients as $client) {
             $client->send(json_encode($error));

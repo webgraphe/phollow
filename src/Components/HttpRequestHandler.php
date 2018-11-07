@@ -281,7 +281,7 @@ class HttpRequestHandler
                 return static::jsonResponse(200, ['data' => $error]);
             }
 
-            return static::jsonResponse(404);
+            return static::jsonResponse(404, []);
         };
     }
 }

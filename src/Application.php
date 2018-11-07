@@ -6,9 +6,12 @@ use Ratchet\ComponentInterface;
 use React\EventLoop\LoopInterface;
 use Webgraphe\Phollow\Components\HttpRequestHandler;
 use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
+use Webgraphe\Phollow\Documents\ErrorCollection;
 
 class Application
 {
+    const DEFAULT_ROUTE_IP = '0.0.0.0';
+
     /** @var Configuration */
     private $configuration;
     /** @var LoopInterface */
@@ -33,6 +36,8 @@ class Application
     private $writableErrorStream;
     /** @var Tracer */
     private $tracer;
+    /** @var ErrorCollection */
+    private $errorCollection;
 
     public static function usage()
     {
@@ -78,6 +83,7 @@ USAGE;
     {
         $this->configuration = $configuration ?: new Configuration;
         $this->tracer = $this->configuration->getTracer();
+        $this->errorCollection = new ErrorCollection;
     }
 
     /**
@@ -97,13 +103,7 @@ USAGE;
      */
     public function run()
     {
-        $this->tracer->setup("\rRunning loop");
-        $this->tracer->notice(
-            'Listening to HTTP requests on ' . str_replace('tcp:', 'http:', $this->httpSocket->getAddress())
-        );
-        $this->tracer->notice('Listening to WebSocket requests on ' . $this->webSocketSocket->getAddress());
         $this->tracer->setup("Webgraphe Phollow server is ready - Press CTRL-C to stop");
-
         $this->loop->run();
 
         return 0;
@@ -124,13 +124,6 @@ USAGE;
         $this->writableErrorStream = $this->prepareWritableErrorStream();
         $this->pipeErrorStreams($this->readableErrorStream, $this->writableErrorStream);
 
-        $this->httpSocket = $this->prepareHttpSocket($this->loop, $this->configuration->getHttpPort());
-        $this->httpRequestHandler = $this->prepareHttpRequestHandler(
-            $this->writableErrorStream,
-            $this->configuration->getServerOrigin()
-        );
-        $this->httpServer = $this->prepareHttpServer($this->httpSocket, $this->httpRequestHandler);
-
         $this->notificationComponent = $this->prepareNotificationComponent();
         $this->webSocketSocket = $this->prepareWebSocketSocket($this->loop, $this->configuration->getWebSocketPort());
         $this->webSocketServer = $this->prepareWebSocketServer(
@@ -140,10 +133,22 @@ USAGE;
             $this->configuration->getServerOrigin()
         );
 
-        $this->writableErrorStream->onErrorAdded(
+        $this->writableErrorStream->onNewError(
             function (Documents\Error $error) {
-                $this->notificationComponent->notifyErrorAdded($error);
+                $this->errorCollection->addError($error);
+                $this->notificationComponent->notifyNewError($error);
             }
+        );
+
+        $this->httpSocket = $this->prepareHttpSocket($this->loop, $this->configuration->getHttpPort());
+        $this->httpRequestHandler = $this->prepareHttpRequestHandler(
+            $this->errorCollection,
+            $this->configuration->getServerOrigin()
+        );
+        $this->httpServer = $this->prepareHttpServer(
+            $this->httpSocket,
+            $this->httpRequestHandler,
+            $this->configuration->getServerOrigin()
         );
     }
 
@@ -237,13 +242,29 @@ USAGE;
     /**
      * @param \React\Socket\Server $httpSocket
      * @param HttpRequestHandler $httpRequestHandler
+     * @param string null $origin
      * @return \React\Http\Server
      */
-    private function prepareHttpServer(\React\Socket\Server $httpSocket, HttpRequestHandler $httpRequestHandler)
-    {
+    private function prepareHttpServer(
+        \React\Socket\Server $httpSocket,
+        HttpRequestHandler $httpRequestHandler,
+        $origin = null
+    ) {
         $this->tracer->setup("Preparing HTTP server");
         $httpServer = new \React\Http\Server($httpRequestHandler);
         $httpServer->listen($httpSocket);
+
+        $search = [
+            'tcp://',
+            self::DEFAULT_ROUTE_IP,
+        ];
+        $replace =[
+            'http://',
+            $origin ?: self::DEFAULT_ROUTE_IP
+        ];
+        $this->tracer->notice(
+            'Listening to HTTP requests on ' . str_replace($search, $replace, $httpSocket->getAddress())
+        );
 
         return $httpServer;
     }
@@ -284,6 +305,12 @@ USAGE;
             $loop
         );
 
+        $search = self::DEFAULT_ROUTE_IP;
+        $replace = $origin ?: self::DEFAULT_ROUTE_IP;
+        $this->tracer->notice(
+            'Listening to WebSocket requests on ' . str_replace($search, $replace, $webSocketSocket->getAddress())
+        );
+
         return $webSocketServer;
     }
 
@@ -294,7 +321,7 @@ USAGE;
     {
         $this->tracer->setup("Preparing loop");
 
-        $tearDown = function() {
+        $tearDown = function () {
             $this->tearDown(...func_get_args());
         };
 
@@ -331,7 +358,9 @@ USAGE;
      */
     private function prepareHttpSocket(LoopInterface $loop, $port)
     {
-        return new \React\Socket\Server("0.0.0.0:$port", $loop);
+        $host = self::DEFAULT_ROUTE_IP;
+
+        return new \React\Socket\Server("$host:$port", $loop);
     }
 
     /**
@@ -341,7 +370,9 @@ USAGE;
      */
     private function prepareWebSocketSocket(LoopInterface $loop, $port)
     {
-        return new \React\Socket\Server("0.0.0.0:$port", $loop);
+        $host = self::DEFAULT_ROUTE_IP;
+
+        return new \React\Socket\Server("$host:$port", $loop);
     }
 
     /**
