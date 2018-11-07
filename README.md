@@ -7,6 +7,8 @@ running a server in the background to track your application's errors.
 
 This project works better with the `pcntl` extension (shipped by default with non-Windows PHP executables).
 
+It also relies on the system command `tail` to stream data pushed by a PHP error handler to a file as it grows.  
+
 ## Installation
 
 Put simply, the installation process consists in adding a development dependency to your project's Composer and registering the error handler.
