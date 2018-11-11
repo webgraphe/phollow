@@ -5,9 +5,7 @@ running a server in the background to track your application's errors.
 
 **DON'T use this in production.**
 
-This project works better with the `pcntl` extension (shipped by default with non-Windows PHP executables).
-
-It also relies on the system command `tail` to stream data pushed by a PHP error handler to a file as it grows.  
+This library relies on Unix sockets and is therefore not compatible natively on Windows machines.
 
 ## Installation
 

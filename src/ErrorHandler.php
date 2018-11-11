@@ -62,6 +62,10 @@ class ErrorHandler
     public function register()
     {
         if ($this->socket) {
+            if (null !== $this->errorReporting) {
+                error_reporting($this->errorReporting);
+                ini_set('display_errors', (int)$this->errorReporting);
+            }
             set_error_handler(
                 function () {
                     return $this(...func_get_args());
@@ -132,14 +136,11 @@ class ErrorHandler
 
     /**
      * @param int $errorReporting
-     * @param bool $displayErrors
      * @return static
      */
-    public function withErrorReporting($errorReporting, $displayErrors = false)
+    public function withErrorReporting($errorReporting)
     {
-        // $this->asdf = $errorReporting;
-        error_reporting($errorReporting);
-        ini_set('display_errors', (int)$displayErrors);
+        $this->errorReporting = $errorReporting;
 
         return $this;
     }

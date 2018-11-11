@@ -53,6 +53,7 @@ class Application
 
     public static function usage()
     {
+        $version = self::VERSION;
         $usage = <<<USAGE
     ____  __          ____             
    / __ \/ /_  ____  / / /___ _      __
@@ -60,7 +61,7 @@ class Application
  / ____/ / / / /_/ / / / /_/ / |/ |/ / 
 /_/   /_/ /_/\____/_/_/\____/|__/|__/  
 
-Version 1.0.0
+Version $version by Jean-Philippe Léveillé
 
 Usage:
     phollow COMMAND [OPTIONS] [ARGUMENTS]
