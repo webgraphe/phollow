@@ -23,15 +23,18 @@ class ErrorHandler
     private $hostName;
     /** @var string */
     private $errorReporting;
+    /** @var Configuration */
+    private $configuration;
 
     /**
-     * @param string $logFile
+     * @param Configuration $configuration
      */
-    protected function __construct($logFile)
+    protected function __construct(Configuration $configuration)
     {
         $this->id = sha1(uniqid(getmypid(), true));
-        $this->logFile = $logFile;
-        if ($this->logFile && file_exists($this->logFile)) {
+        $this->configuration = $configuration;
+        $logFile = $configuration->getLogFile();
+        if ($logFile && file_exists($logFile)) {
             $this->socket = @stream_socket_client("unix://$logFile", $errno, $errstr, null);
             if (!$this->socket) {
                 trigger_error("Can't create socket for ErrorHandler; ($errno) $errstr");
@@ -51,12 +54,13 @@ class ErrorHandler
     }
 
     /**
-     * @param string $logFile
+     * @param Configuration|null $configuration
      * @return static
+     * @throws \Exception
      */
-    public static function create($logFile)
+    public static function create(Configuration $configuration = null)
     {
-        return new static($logFile);
+        return new static($configuration ?: Configuration::fromGlobals());
     }
 
     public function register()
@@ -64,7 +68,7 @@ class ErrorHandler
         if ($this->socket) {
             if (null !== $this->errorReporting) {
                 error_reporting($this->errorReporting);
-                ini_set('display_errors', (int)$this->errorReporting);
+                ini_set('display_errors', 0);
             }
             set_error_handler(
                 function () {
@@ -185,5 +189,13 @@ class ErrorHandler
     private function filterError(Error $error)
     {
         return $this->errorFilter ? (bool)call_user_func($this->errorFilter, $error) : true;
+    }
+
+    /**
+     * @return Configuration
+     */
+    public function getConfiguration()
+    {
+        return $this->configuration;
     }
 }

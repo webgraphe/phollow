@@ -32,11 +32,12 @@ if (!ini_get('date.timezone')) {
     ini_set('date.timezone', 'UTC');
 }
 
-foreach (array(
-             __DIR__ . '/../../autoload.php',
-             __DIR__ . '/../vendor/autoload.php',
-             __DIR__ . '/vendor/autoload.php'
-         ) as $file) {
+$files = [
+    __DIR__ . '/../../autoload.php',
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/vendor/autoload.php'
+];
+foreach ($files as $file) {
     if (file_exists($file)) {
         define('PHOLLOW_VENDOR_AUTOLOAD', $file);
 

@@ -92,6 +92,17 @@ class Configuration
     }
 
     /**
+     * @return Configuration
+     * @throws \Exception
+     */
+    public static function fromGlobals()
+    {
+        $file = './' . self::DEFAULT_INI_FILE;
+
+        return file_exists($file) ? Configuration::fromIniFile($file) : new Configuration;
+    }
+
+    /**
      * @return string
      */
     public function getLogFile()

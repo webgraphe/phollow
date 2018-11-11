@@ -37,19 +37,18 @@ use Webgraphe\Phollow\ErrorHandler;
 use Webgraphe\Phollow\Configuration;
 use Webgraphe\Phollow\Documents\Error;
 
-$configuration = Configuration::fromIniFile('path/to/configuration.ini');
-ErrorHandler::create($configuration->getLogFile())
-    // Fancies backtraces
+ErrorHandler::create()
+    // Fancies backtraces and error locations
     ->withBasePath('path/to/project')
-    // Calls error_reporting() for you and shuts down error display
-    ->withErrorReporting(E_ALL)
+    // Will call error_reporting() upon registering and will shut down error display
+    ->withErrorReporting(E_ALL | E_STRICT)
     // Filters errors reported using an indicator function
     ->withErrorFilter(
         function (Error $error) {
             return 'report-error-from.my-host.only' === $error->getHostName();
         }
     )
-    // You're done! next PHP error triggered will be reported to the handler
+    // You're done! Next PHP error triggered will be reported to the handler
     ->register();
 ```
 
@@ -59,7 +58,7 @@ The error handler will only track errors if the file tailed by the server exists
 the server is running):
 
 ```bash
-vendor/bin/phollow run
+vendor/bin/phollow run --colors
 ```
 
 Hit the URL for the HTTP server listed.
@@ -67,5 +66,5 @@ Hit the URL for the HTTP server listed.
 To get support on the server commands:
 
 ```bash
-vendor/bin/phollow help
+vendor/bin/phollow
 ```
