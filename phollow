@@ -5,8 +5,9 @@ use Webgraphe\Phollow\Application;
 use Webgraphe\Phollow\Configuration;
 use Webgraphe\Phollow\ParameterBag;
 
-if ('WIN' === strtoupper(substr(PHP_OS, 0, 3))) {
+if (defined('PHP_WINDOWS_VERSION_MAJOR')) {
     echo "Webgraphe Phollow relies on Unix sockets and is therefore not compatible natively on Windows machines." . PHP_EOL;
+
     die(1);
 }
 
