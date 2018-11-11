@@ -5,21 +5,27 @@ namespace Webgraphe\Phollow;
 use Ratchet\ComponentInterface;
 use React\EventLoop\LoopInterface;
 use Webgraphe\Phollow\Components\HttpRequestHandler;
+use Webgraphe\Phollow\Components\LogComponent;
+use Webgraphe\Phollow\Components\WritableLogStream;
 use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
 use Webgraphe\Phollow\Documents\ErrorCollection;
 
 class Application
 {
+    /** @var string */
+    const VERSION = '0.1.0';
+    /** @var string */
     const DEFAULT_ROUTE_IP = '0.0.0.0';
+
+    /** @var static */
+    private static $instance;
 
     /** @var Configuration */
     private $configuration;
     /** @var LoopInterface */
     private $loop;
-    /** @var string */
-    private $errorLogFile;
     /** @var \React\Stream\ReadableStreamInterface */
-    private $readableErrorStream;
+    private $readableLogStream;
     /** @var HttpRequestHandler */
     private $httpRequestHandler;
     /** @var Components\NotificationComponent */
@@ -32,12 +38,18 @@ class Application
     private $httpSocket;
     /** @var \React\Http\Server */
     private $httpServer;
-    /** @var Components\WritableErrorStream */
-    private $writableErrorStream;
+    /** @var Components\WritableLogStream */
+    private $writableLogStream;
     /** @var Tracer */
     private $tracer;
     /** @var ErrorCollection */
     private $errorCollection;
+    /** @var Components\LogComponent */
+    private $logComponent;
+    /** @var \React\Socket\Server */
+    private $logSocket;
+    /** @var \Ratchet\Server\IoServer */
+    private $logServer;
 
     public static function usage()
     {
@@ -95,7 +107,21 @@ USAGE;
         $application = new static($configuration);
         $application->setup();
 
+        static::$instance = $application;
+
         return $application;
+    }
+
+    /**
+     * @return Application
+     */
+    public static function getInstance()
+    {
+        if (!static::$instance) {
+            static::$instance = new static;
+        }
+
+        return static::$instance;
     }
 
     /**
@@ -114,15 +140,20 @@ USAGE;
      */
     private function setup()
     {
+        $this->tracer->setup("Webgraphe Phollow " . self::VERSION . " by Jean-Philippe Léveillé");
         $this->tracer->setup($this->configuration->getSummary());
-        $this->tracer->info(str_replace(PHP_EOL, PHP_EOL . '  ', '  ' . $this->configuration->toIni()));
+        $this->tracer->info(str_replace(PHP_EOL, PHP_EOL . '  -', '  -' . $this->configuration->toIni()));
 
         $this->loop = $this->prepareLoop();
 
-        $this->errorLogFile = $this->prepareErrorLogFile();
-        $this->readableErrorStream = $this->prepareReadableErrorStream($this->loop, $this->errorLogFile);
-        $this->writableErrorStream = $this->prepareWritableErrorStream();
-        $this->pipeErrorStreams($this->readableErrorStream, $this->writableErrorStream);
+        $this->writableLogStream = $this->prepareWritableLogStream();
+        $this->logComponent = $this->prepareLogComponent($this->writableLogStream);
+        $this->logSocket = $this->prepareLogSocket($this->loop, $this->configuration->getLogFile());
+        $this->logServer = $this->prepareLogServer(
+            $this->logSocket,
+            $this->loop,
+            $this->logComponent
+        );
 
         $this->notificationComponent = $this->prepareNotificationComponent();
         $this->webSocketSocket = $this->prepareWebSocketSocket($this->loop, $this->configuration->getWebSocketPort());
@@ -133,7 +164,7 @@ USAGE;
             $this->configuration->getServerOrigin()
         );
 
-        $this->writableErrorStream->onNewError(
+        $this->writableLogStream->onNewError(
             function (Documents\Error $error) {
                 $this->errorCollection->addError($error);
                 $this->notificationComponent->notifyNewError($error);
@@ -168,42 +199,12 @@ USAGE;
         $this->loop and $this->loop->stop();
 
         $this->tracer->setup("Closing streams");
-        $this->readableErrorStream and $this->readableErrorStream->close();
-        $this->writableErrorStream and $this->writableErrorStream->close();
+        $this->readableLogStream and $this->readableLogStream->close();
+        $this->writableLogStream and $this->writableLogStream->close();
 
         $this->tracer->setup("Flushing log file");
-        $errorLogFile = $this->configuration->getErrorLogFile();
-        $this->unlinkFile($errorLogFile);
-    }
-
-    /**
-     * @return string
-     * @throws \Exception
-     */
-    private function prepareErrorLogFile()
-    {
-        $errorLogFile = $this->configuration->getErrorLogFile();
-        $this->tracer->setup("Preparing error file $errorLogFile");
-
-        $this->unlinkFile($errorLogFile);
-        $this->touchFile($errorLogFile);
-        $this->makeFileWritableToEveryone($errorLogFile);
-
-        return $errorLogFile;
-    }
-
-    /**
-     * @param LoopInterface $loop
-     * @param string $errorLogFile
-     * @return \React\Stream\ReadableStreamInterface
-     */
-    private function prepareReadableErrorStream(LoopInterface $loop, $errorLogFile)
-    {
-        $errorLogFile = escapeshellarg($errorLogFile);
-        $command = "tail -f -n 0 $errorLogFile 2>&1";
-        $this->tracer->setup("Preparing readable error stream; $command");
-
-        return new \React\Stream\ReadableResourceStream(popen($command, 'r'), $loop);
+        $logFile = $this->configuration->getLogFile();
+        $this->unlinkFile($logFile);
     }
 
     /**
@@ -214,28 +215,6 @@ USAGE;
     {
         if (file_exists($errorLogFile) && !@unlink($errorLogFile)) {
             throw new \Exception("Can't unlink $errorLogFile");
-        }
-    }
-
-    /**
-     * @param string $errorLogFile
-     * @throws \Exception
-     */
-    private function touchFile($errorLogFile)
-    {
-        if (!@touch($errorLogFile)) {
-            throw new \Exception("Can't touch $errorLogFile");
-        }
-    }
-
-    /**
-     * @param $errorLogFile
-     * @throws \Exception
-     */
-    private function makeFileWritableToEveryone($errorLogFile)
-    {
-        if (!@chmod($errorLogFile, 0666)) {
-            throw new \Exception("Can't make $errorLogFile writable to everyone");
         }
     }
 
@@ -258,7 +237,7 @@ USAGE;
             'tcp://',
             self::DEFAULT_ROUTE_IP,
         ];
-        $replace =[
+        $replace = [
             'http://',
             $origin ?: self::DEFAULT_ROUTE_IP
         ];
@@ -270,13 +249,24 @@ USAGE;
     }
 
     /**
+     * @param WritableLogStream $writableLogStream
+     * @return Components\LogComponent
+     */
+    private function prepareLogComponent(WritableLogStream $writableLogStream)
+    {
+        $this->tracer->setup("Preparing Log component");
+
+        return new Components\LogComponent($this->tracer->withComponent('LOGC'), $writableLogStream);
+    }
+
+    /**
      * @return Components\NotificationComponent
      */
     private function prepareNotificationComponent()
     {
-        $this->tracer->setup("Preparing notification component");
+        $this->tracer->setup("Preparing Notification component");
 
-        return new Components\NotificationComponent($this->tracer->withComponent('WSCK'));
+        return new Components\NotificationComponent($this->tracer->withComponent('WSOC'));
     }
 
     /**
@@ -319,7 +309,7 @@ USAGE;
      */
     private function prepareLoop()
     {
-        $this->tracer->setup("Preparing loop");
+        $this->tracer->setup("Preparing Loop");
 
         $tearDown = function () {
             $this->tearDown(...func_get_args());
@@ -335,20 +325,13 @@ USAGE;
     }
 
     /**
-     * @return Components\WritableErrorStream
+     * @return Components\WritableLogStream
      */
-    private function prepareWritableErrorStream()
+    private function prepareWritableLogStream()
     {
-        $this->tracer->setup("Preparing writable error stream; " . Components\WritableErrorStream::class);
+        $this->tracer->setup('Preparing Writable Log stream');
 
-        return new Components\WritableErrorStream($this->tracer->withComponent('PHPE'));
-    }
-
-    private function pipeErrorStreams(
-        \React\Stream\ReadableStreamInterface $readableErrorStream,
-        \React\Stream\WritableStreamInterface $writableErrorStream
-    ) {
-        $readableErrorStream->pipe($writableErrorStream);
+        return new Components\WritableLogStream($this->tracer->withComponent('PHPE'));
     }
 
     /**
@@ -358,6 +341,8 @@ USAGE;
      */
     private function prepareHttpSocket(LoopInterface $loop, $port)
     {
+        $this->tracer->setup("Preparing HTTP socket");
+
         $host = self::DEFAULT_ROUTE_IP;
 
         return new \React\Socket\Server("$host:$port", $loop);
@@ -370,6 +355,8 @@ USAGE;
      */
     private function prepareWebSocketSocket(LoopInterface $loop, $port)
     {
+        $this->tracer->setup("Preparing WebSocket socket");
+
         $host = self::DEFAULT_ROUTE_IP;
 
         return new \React\Socket\Server("$host:$port", $loop);
@@ -383,6 +370,64 @@ USAGE;
      */
     private function prepareHttpRequestHandler(ErrorCollectionContract $errorCollection, $origin = '')
     {
+        $this->tracer->setup("Preparing HTTP request handler");
+
         return HttpRequestHandler::create($errorCollection, $this->tracer->withComponent('HTTP'), $origin);
+    }
+
+    public function getMeta($host)
+    {
+        return [
+            'errors' => [
+                'count' => [
+                    'total' => count($this->errorCollection),
+                    'severities' => $this->errorCollection->getSeverityCounts(),
+                    'applications' => [],
+                    'hosts' => [],
+                    'sessionIds' => [],
+                    'locations' => []
+                ]
+            ],
+            'server' => [
+                'websocket' => [
+                    'host' => $host,
+                    'port' => $this->configuration->getWebSocketPort()
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * @param LoopInterface $loop
+     * @param string $logFile
+     * @return \React\Socket\UnixServer
+     * @throws \Exception
+     */
+    private function prepareLogSocket(LoopInterface $loop, $logFile)
+    {
+        $this->tracer->setup("Preparing Log socket");
+
+        $this->unlinkFile($logFile);
+
+        return new \React\Socket\UnixServer($logFile, $loop);
+    }
+
+    /**
+     * @param \React\Socket\UnixServer $logSocket
+     * @param $loop
+     * @param $logComponent
+     * @return mixed
+     */
+    private function prepareLogServer(\React\Socket\UnixServer $logSocket, LoopInterface $loop, LogComponent $logComponent)
+    {
+        $this->tracer->setup("Preparing Log server");
+
+        $logServer = new \Ratchet\Server\IoServer($logComponent, $logSocket, $loop);
+
+        $this->tracer->notice(
+            'Listening to Documents pushed on ' . $logSocket->getAddress()
+        );
+
+        return $logServer;
     }
 }

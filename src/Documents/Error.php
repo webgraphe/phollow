@@ -3,18 +3,21 @@
 namespace Webgraphe\Phollow\Documents;
 
 use Webgraphe\Phollow\Contracts\ErrorContract;
+use Webgraphe\Phollow\Document;
 
-class Error implements ErrorContract
+class Error extends Document implements ErrorContract
 {
+    const TYPE_ERROR = 'error';
+
     /** @var int */
     private static $nextId = 0;
 
-    /** @var int */
+    /** @var int TODO Does not belong here */
     private $id;
     /** @var string */
     private $message;
     /** @var int */
-    private $severity;
+    private $severityId;
     /** @var string */
     private $file;
     /** @var int */
@@ -22,56 +25,47 @@ class Error implements ErrorContract
     /** @var string[] */
     private $trace;
     /** @var string|null */
-    private $host;
+    private $hostName;
     /** @var string|null */
     private $serverIp;
     /** @var string|null */
     private $remoteIp;
     /** @var string|null */
     private $sessionId;
+    /** @var string \DateTime::ATOM format preferred */
+    private $timestamp;
+    /** @var string */
+    private $applicationName;
 
     public function __construct()
     {
         $this->id = self::$nextId++;
-        $this->host = self::arrayGet($_SERVER, 'HOSTNAME');
+        $this->hostName = self::arrayGet($_SERVER, 'HOSTNAME');
         $this->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR');
         $this->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR');
     }
 
     /**
      * @param string $message
-     * @param int $severity
+     * @param int $severityId
      * @param string $file
      * @param int $line
      * @param array $trace
      * @param string|null $basePath
      * @return Error
      */
-    public static function create($message, $severity, $file, $line, array $trace, $basePath = null)
+    public static function create($message, $severityId, $file, $line, array $trace, $basePath = null)
     {
         $instance = new static;
+        $instance->timestamp = (new \DateTime)->format(\DateTime::ATOM);
         $instance->message = $message;
-        $instance->severity = $severity;
-        $instance->file = $file;
+        $instance->severityId = $severityId;
+        $basePathLength = strlen($basePath);
+        $instance->file = $basePathLength && 0 === strpos($file, $basePath) ? substr($file, $basePathLength + 1) : $file;
         $instance->line = $line;
         $instance->trace = self::simplifiedBacktrace($trace, $basePath);
 
         return $instance;
-    }
-
-    /**
-     * @param \ErrorException $exception
-     * @return Error
-     */
-    public static function fromException(\ErrorException $exception)
-    {
-        return static::create(
-            $exception->getMessage(),
-            $exception->getSeverity(),
-            $exception->getFile(),
-            $exception->getLine(),
-            $exception->getTrace()
-        );
     }
 
     /**
@@ -87,17 +81,24 @@ class Error implements ErrorContract
 
     /**
      * @param array $data
-     * @return static
+     * @return static|null
      */
     public static function fromArray(array $data)
     {
+        if (!$data) {
+            return null;
+        }
+
         $instance = new static;
+        $instance->timestamp = self::arrayGet($data, 'timestamp');
         $instance->message = self::arrayGet($data, 'message');
-        $instance->severity = self::arrayGet($data, 'severity');
+        $instance->sessionId = self::arrayGet($data, 'sessionId');
+        $instance->severityId = self::arrayGet($data, 'severityId');
         $instance->file = self::arrayGet($data, 'file');
         $instance->line = self::arrayGet($data, 'line');
         $instance->trace = self::arrayGet($data, 'trace');
-        $instance->host = self::arrayGet($data, 'host');
+        $instance->hostName = self::arrayGet($data, 'hostName');
+        $instance->applicationName = self::arrayGet($data, 'applicationName');
         $instance->serverIp = self::arrayGet($data, 'serverIp');
         $instance->remoteIp = self::arrayGet($data, 'remoteIp');
 
@@ -105,16 +106,11 @@ class Error implements ErrorContract
     }
 
     /**
-     * @param string $json
-     * @return null|static
+     * @return string
      */
-    public static function fromJson($json)
+    public function getDocumentType()
     {
-        $data = json_decode($json, true);
-
-        return json_last_error()
-            ? null
-            : static::fromArray($data);
+        return self::TYPE_ERROR;
     }
 
     /**
@@ -129,14 +125,14 @@ class Error implements ErrorContract
             $parents[static::class] = class_parents(static::class);
         }
         $trace = [];
-        $basePathLen = strlen($basePath);
+        $basePathLength = strlen($basePath);
         foreach ($backtrace as $call) {
             $class = isset($call['class']) ? $call['class'] : null;
             if (static::class === $class || in_array($class, $parents[static::class])) {
                 continue;
             }
             $file = isset($call['file']) ? $call['file'] : null;
-            $file = $basePath && 0 === strpos($file, $basePath) ? substr($file, $basePathLen) : $file;
+            $file = $basePathLength && 0 === strpos($file, $basePath) ? substr($file, $basePathLength + 1) : $file;
             $line = isset($call['line']) ? $call['line'] : null;;
             $type = isset($call['type']) ? $call['type'] : null;
             $function = isset($call['function']) ? $call['function'] : null;
@@ -157,6 +153,28 @@ class Error implements ErrorContract
     }
 
     /**
+     * @param string $name
+     * @return static
+     */
+    public function withApplicationName($name)
+    {
+        $this->applicationName = $name;
+
+        return $this;
+    }
+
+    /**
+     * @param string $name
+     * @return static
+     */
+    public function withHostName($name)
+    {
+        $this->hostName = $name;
+
+        return $this;
+    }
+
+    /**
      * @return string
      */
     public function __toString()
@@ -164,7 +182,7 @@ class Error implements ErrorContract
         return implode(
             ' ',
             [
-                self::arrayGet(self::E_STRINGS, $this->severity, 'UNKNOWN'),
+                self::arrayGet(self::E_STRINGS, $this->severityId, 'UNKNOWN'),
                 "{$this->file}($this->line):",
                 $this->message,
             ]
@@ -178,24 +196,19 @@ class Error implements ErrorContract
     {
         return [
             'id' => $this->id,
-            'session' => $this->sessionId,
+            'timestamp' => $this->timestamp,
+            'sessionId' => $this->sessionId,
             'message' => $this->message,
-            'severity' => $this->severity,
+            'severityId' => $this->severityId,
+            'severityName' => $this->getSeverityName(),
             'file' => $this->file,
             'line' => $this->line,
             'trace' => $this->trace,
-            'host' => $this->host,
+            'hostName' => $this->hostName,
+            'applicationName' => $this->applicationName,
             'serverIp' => $this->serverIp,
             'remoteIp' => $this->remoteIp,
         ];
-    }
-
-    /**
-     * @return array
-     */
-    public function jsonSerialize()
-    {
-        return $this->toArray();
     }
 
     /**
@@ -209,9 +222,9 @@ class Error implements ErrorContract
     /**
      * @return int
      */
-    public function getSeverity()
+    public function getSeverityId()
     {
-        return $this->severity;
+        return $this->severityId;
     }
 
     /**
@@ -241,9 +254,9 @@ class Error implements ErrorContract
     /**
      * @return null|string
      */
-    public function getHost()
+    public function getHostName()
     {
-        return $this->host;
+        return $this->hostName;
     }
 
     /**
@@ -276,5 +289,13 @@ class Error implements ErrorContract
     public function getId()
     {
         return $this->id;
+    }
+
+    /**
+     * @return string
+     */
+    public function getSeverityName()
+    {
+        return array_key_exists($this->severityId, self::E_STRINGS) ? self::E_STRINGS[$this->severityId] : self::E_STRINGS[self::E_UNKNOWN];
     }
 }

@@ -4,15 +4,17 @@ namespace Webgraphe\Phollow;
 
 class Configuration
 {
+    const DEFAULT_INI_FILE = 'phollow.ini';
+
     const SETTING_COLORS = 'colors';
-    const SETTING_ERRORS_LOG_FILENAME = 'errors.log.filename';
+    const SETTING_LOG_FILENAME = 'log.filename';
     const SETTING_ORIGIN = 'origin';
     const SETTING_HTTP_PORT = 'http.port';
     const SETTING_WEBSOCKET_PORT = 'websocket.port';
 
     const DEFAULT_SETTINGS = [
         self::SETTING_COLORS => false,
-        self::SETTING_ERRORS_LOG_FILENAME => '/dev/shm/phollow.errors.log',
+        self::SETTING_LOG_FILENAME => '/tmp/phollow.sock',
         self::SETTING_ORIGIN => '',
         self::SETTING_HTTP_PORT => 8080,
         self::SETTING_WEBSOCKET_PORT => 8081,
@@ -20,7 +22,7 @@ class Configuration
 
     const SETTING_DESCRIPTIONS = [
         self::SETTING_COLORS => 'Toggles use of CLI colors',
-        self::SETTING_ERRORS_LOG_FILENAME => 'Dumps error logs in file (default=/dev/shm/phollow.errors.log)',
+        self::SETTING_LOG_FILENAME => 'Dumps error logs in file (default=' . self::DEFAULT_INI_FILE . ')',
         self::SETTING_ORIGIN => 'Specifics HTTP and WebSocket origin to match',
         self::SETTING_HTTP_PORT => 'Port of the HTTP server (default=8080)',
         self::SETTING_WEBSOCKET_PORT => 'Port of the WebSocket server (default=8081)',
@@ -92,9 +94,9 @@ class Configuration
     /**
      * @return string
      */
-    public function getErrorLogFile()
+    public function getLogFile()
     {
-        return $this->getSetting(static::SETTING_ERRORS_LOG_FILENAME);
+        return $this->getSetting(static::SETTING_LOG_FILENAME);
     }
 
     /**

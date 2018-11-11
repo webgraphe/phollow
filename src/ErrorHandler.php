@@ -15,6 +15,14 @@ class ErrorHandler
     private $errorFilter;
     /** @var string|null */
     private $basePath;
+    /** @var resource|bool */
+    private $socket;
+    /** @var string */
+    private $applicationName;
+    /** @var string */
+    private $hostName;
+    /** @var string */
+    private $errorReporting;
 
     /**
      * @param string $logFile
@@ -23,6 +31,23 @@ class ErrorHandler
     {
         $this->id = sha1(uniqid(getmypid(), true));
         $this->logFile = $logFile;
+        if ($this->logFile && file_exists($this->logFile)) {
+            $this->socket = @stream_socket_client("unix://$logFile", $errno, $errstr, null);
+            if (!$this->socket) {
+                trigger_error("Can't create socket for ErrorHandler; ($errno) $errstr");
+            }
+        }
+        $this->hostName = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'CLI';
+        $this->applicationName = 'PHP Application';
+    }
+
+    public function __destruct()
+    {
+        if ($this->socket) {
+            fclose($this->socket);
+        }
+
+        $this->socket = null;
     }
 
     /**
@@ -31,53 +56,53 @@ class ErrorHandler
      */
     public static function create($logFile)
     {
-        if (!file_exists($logFile)) {
-            trigger_error("Log file '$logFile' not found", E_USER_WARNING);
-            $logFile = false;
-        } elseif (!is_writable($logFile)) {
-            trigger_error("Log file '$logFile' is not writable", E_USER_WARNING);
-            $logFile = false;
-        } else {
-            $logFile = realpath($logFile);
-        }
-
         return new static($logFile);
     }
 
     public function register()
     {
-        if ($this->logFile) {
-            set_error_handler($this);
+        if ($this->socket) {
+            set_error_handler(
+                function () {
+                    return $this(...func_get_args());
+                }
+            );
             register_shutdown_function(
                 function () {
                     if ($data = error_get_last()) {
-                        call_user_func($this, $data['type'], $data['message'], $data['file'], $data['line']);
+                        return $this->__invoke($data['type'], $data['message'], $data['file'], $data['line']);
                     }
+
+                    return false;
                 }
             );
+
+            return true;
         }
+
+        return false;
     }
 
     /**
-     * @param int $severity
+     * @param int $severityId
      * @param string $message
      * @param string $file
      * @param string $line
      * @return bool
      */
-    public function __invoke($severity, $message, $file, $line)
+    public function __invoke($severityId, $message, $file, $line)
     {
-        if (0 === (error_reporting() & $severity)) {
+        if (0 === (error_reporting() & $severityId)) {
             return false;
         }
 
-        if (!$this->logFile) {
+        if (!$this->socket) {
             return false;
         }
 
         $error = Error::create(
             $message,
-            $severity,
+            $severityId,
             $file,
             $line,
             debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS),
@@ -88,14 +113,13 @@ class ErrorHandler
             return false;
         }
 
-        $json = json_encode($error->withSessionId($this->getId()));
-        if (!@file_put_contents($this->logFile, $json . PHP_EOL, FILE_APPEND)) {
-            $this->logFile = false;
+        $json = json_encode(
+            $error->withSessionId($this->getId())
+                ->withApplicationName($this->applicationName)
+                ->withHostName($this->hostName)
+        );
 
-            return false;
-        }
-
-        return true;
+        return (bool)fwrite($this->socket, $json . PHP_EOL);
     }
 
     /**
@@ -113,8 +137,9 @@ class ErrorHandler
      */
     public function withErrorReporting($errorReporting, $displayErrors = false)
     {
+        // $this->asdf = $errorReporting;
         error_reporting($errorReporting);
-        ini_set('display_errors', $displayErrors);
+        ini_set('display_errors', (int)$displayErrors);
 
         return $this;
     }
@@ -137,6 +162,17 @@ class ErrorHandler
     public function withBasePath($basePath)
     {
         $this->basePath = realpath($basePath);
+
+        return $this;
+    }
+
+    /**
+     * @param string $name
+     * @return static
+     */
+    public function withApplicationName($name)
+    {
+        $this->applicationName = $name;
 
         return $this;
     }

@@ -2,7 +2,7 @@
 
 namespace Webgraphe\Phollow\Contracts;
 
-interface ErrorCollectionContract extends \JsonSerializable
+interface ErrorCollectionContract extends \Countable
 {
     /**
      * @return ErrorContract[]

@@ -40,18 +40,19 @@ use Webgraphe\Phollow\Configuration;
 use Webgraphe\Phollow\Documents\Error;
 
 $configuration = Configuration::fromIniFile('path/to/configuration.ini');
-ErrorHandler::create($configuration->getErrorLogFile())
-    // fancies backtraces
+ErrorHandler::create($configuration->getLogFile())
+    // Fancies backtraces
     ->withBasePath('path/to/project')
-    // calls error_reporting() for you and shuts down error display
+    // Calls error_reporting() for you and shuts down error display
     ->withErrorReporting(E_ALL)
-    // filters errors reported using an indicator function
+    // Filters errors reported using an indicator function
     ->withErrorFilter(
         function (Error $error) {
-            return 'report-error-from.my-host.only' === $error->getHost();
+            return 'report-error-from.my-host.only' === $error->getHostName();
         }
     )
-    ->register(); // you're done, next PHP error triggered will be reported to the handler
+    // You're done! next PHP error triggered will be reported to the handler
+    ->register();
 ```
 
 ### Launch the server

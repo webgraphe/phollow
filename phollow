@@ -26,7 +26,11 @@ if (!ini_get('date.timezone')) {
     ini_set('date.timezone', 'UTC');
 }
 
-foreach (array(__DIR__ . '/../../autoload.php', __DIR__ . '/../vendor/autoload.php', __DIR__ . '/vendor/autoload.php') as $file) {
+foreach (array(
+             __DIR__ . '/../../autoload.php',
+             __DIR__ . '/../vendor/autoload.php',
+             __DIR__ . '/vendor/autoload.php'
+         ) as $file) {
     if (file_exists($file)) {
         define('PHOLLOW_VENDOR_AUTOLOAD', $file);
 
@@ -66,23 +70,22 @@ try {
         die(Application::usage());
     }
 
-    $configurationOptions = $bag->getOptions(
-        function ($key) {
-            return isset(Configuration::DEFAULT_SETTINGS[$key]);
-        },
-        ARRAY_FILTER_USE_KEY
-    );
-
     if ('generate-configuration' === $action) {
-        die(Configuration::fromArray($configurationOptions)->toIni() . PHP_EOL);
+        die((new Configuration)->toIni() . PHP_EOL);
     }
 
-    if ($configurationFile = $bag->getOption('configuration-file')) {
-        $configuration = Configuration::fromIniFile($configurationFile, $configurationOptions);
-    } elseif ($bag->hasOption('no-configuration') || !file_exists('phollow.ini')) {
-        $configuration = Configuration::fromArray($configurationOptions);
+    $overrides = [];
+    if ($bag->hasOption('colors')) {
+        $overrides['colors'] = true;
+    }
+
+    if ($bag->hasOption('no-configuration') || !file_exists(Configuration::DEFAULT_INI_FILE)) {
+        $configuration = Configuration::fromArray($overrides);
     } else {
-        $configuration = Configuration::fromIniFile('phollow.ini', $configurationOptions);
+        $configuration = Configuration::fromIniFile(
+            $bag->getOption('configuration-file', Configuration::DEFAULT_INI_FILE),
+            $overrides
+        );
     }
 
     if ('run' === $action) {

@@ -2,17 +2,17 @@
 
 namespace Webgraphe\Phollow\Contracts;
 
-interface ErrorContract extends \JsonSerializable
+interface ErrorContract
 {
+    const E_UNKNOWN = 0;
+
     /** @var string[] */
     const E_STRINGS = [
+        self::E_UNKNOWN => 'UNKNOWN',
         E_ERROR => 'ERROR',
-        E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
         E_WARNING => 'WARNING',
         E_PARSE => 'PARSE',
         E_NOTICE => 'NOTICE',
-        E_STRICT => 'STRICT',
-        E_DEPRECATED => 'DEPRECATED',
         E_CORE_ERROR => 'CORE_ERROR',
         E_CORE_WARNING => 'CORE_WARNING',
         E_COMPILE_ERROR => 'COMPILE_ERROR',
@@ -20,6 +20,9 @@ interface ErrorContract extends \JsonSerializable
         E_USER_ERROR => 'USER_ERROR',
         E_USER_WARNING => 'USER_WARNING',
         E_USER_NOTICE => 'USER_NOTICE',
+        E_STRICT => 'STRICT',
+        E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
+        E_DEPRECATED => 'DEPRECATED',
         E_USER_DEPRECATED => 'USER_DEPRECATED',
     ];
 
@@ -47,7 +50,12 @@ interface ErrorContract extends \JsonSerializable
     /**
      * @return int
      */
-    public function getSeverity();
+    public function getSeverityId();
+
+    /**
+     * @return string
+     */
+    public function getSeverityName();
 
     /**
      * @return string
@@ -67,7 +75,7 @@ interface ErrorContract extends \JsonSerializable
     /**
      * @return null|string
      */
-    public function getHost();
+    public function getHostName();
 
     /**
      * @return null|string

@@ -2,22 +2,21 @@
 
 namespace Webgraphe\Phollow\Components;
 
-use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
-use Webgraphe\Phollow\Documents;
+use Ratchet\MessageComponentInterface;
 use Webgraphe\Phollow\Tracer;
 
-class NotificationComponent implements MessageComponentInterface
+class LogComponent implements MessageComponentInterface
 {
-    /** @var \SplObjectStorage|ConnectionInterface[] */
-    protected $clients;
     /** @var Tracer */
     private $tracer;
+    /** @var WritableLogStream */
+    private $writableLogStream;
 
-    public function __construct(Tracer $tracer)
+    public function __construct(Tracer $tracer, WritableLogStream $writableLogStream)
     {
         $this->tracer = $tracer;
-        $this->clients = new \SplObjectStorage;
+        $this->writableLogStream = $writableLogStream;
     }
 
     /**
@@ -27,23 +26,21 @@ class NotificationComponent implements MessageComponentInterface
     public static function stringifyConnection(ConnectionInterface $conn)
     {
         /** @noinspection PhpUndefinedFieldInspection */
-        return $conn->remoteAddress;
+        return $conn->remoteAddress ?: '#' . $conn->resourceId;
     }
 
     public function onOpen(ConnectionInterface $conn)
     {
-        $this->clients->attach($conn);
         $this->tracer->notice(self::stringifyConnection($conn) . ' Connected');
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $this->tracer->info(self::stringifyConnection($from) . " (ignored) $msg");
+        $this->writableLogStream->write($msg);
     }
 
     public function onClose(ConnectionInterface $conn)
     {
-        $this->clients->detach($conn);
         $this->tracer->notice(self::stringifyConnection($conn) . ' Disconnected');
     }
 
@@ -52,12 +49,5 @@ class NotificationComponent implements MessageComponentInterface
         $this->tracer->error($e->getMessage());
 
         $conn->close();
-    }
-
-    public function notifyNewError(Documents\Error $error)
-    {
-        foreach ($this->clients as $client) {
-            $client->send(json_encode($error));
-        }
     }
 }

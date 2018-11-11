@@ -2,6 +2,7 @@
 
 namespace Webgraphe\Phollow\Components;
 
+use Webgraphe\Phollow\Application;
 use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
 use Webgraphe\Phollow\Tracer;
 
@@ -9,14 +10,17 @@ class HttpRequestHandler
 {
     const DOCUMENT_ROOT = __DIR__ . '/../../resources/public';
 
+    /**
+     * @var string[]
+     * @see https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
+     */
     const MIME_TYPES = [
         'css' => 'text/css',
         'htm' => 'text/html',
         'html' => 'text/html',
-        'ico' => 'image/x-icon',
         'js' => 'application/javascript',
         'json' => 'application/json',
-        'map' => 'text/plain'
+        'png' => 'image/png',
     ];
 
     /** @var ErrorCollectionContract */
@@ -47,6 +51,7 @@ class HttpRequestHandler
                 $routes->addGroup(
                     '/data',
                     function (\FastRoute\RouteCollector $routes) {
+                        $routes->get('/meta', $this->getMeta());
                         $routes->get('/errors[/{id:\d+}]', $this->getDataErrors());
                     }
                 );
@@ -93,16 +98,11 @@ class HttpRequestHandler
 
         switch ($routeInfo[0]) {
             case \FastRoute\Dispatcher::NOT_FOUND:
-                return $this->serveHttpResponse($method, $path, $this->getPublicFileResponse($path, $request));
+                return $this->serveHttpResponse($request, $this->getPublicFileResponse($path, $request));
             case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
-                return $this->serveHttpResponse($method, $path, $this->methodNotAllowedResponse($method, $path));
-            case \FastRoute\Dispatcher::FOUND:
+                return $this->serveHttpResponse($request, $this->methodNotAllowedResponse($method, $path));
             default:
-                return $this->serveHttpResponse(
-                    $method,
-                    $path,
-                    $routeInfo[1]($request, ... array_values($routeInfo[2]))
-                );
+                return $this->serveHttpResponse($request, $routeInfo[1]($request, ... array_values($routeInfo[2])));
         }
     }
 
@@ -242,19 +242,22 @@ class HttpRequestHandler
     {
         $extension = strtolower(substr($publicFilePath, strrpos($publicFilePath, '.') + 1));
 
-        return isset(self::MIME_TYPES[$extension]) ? self::MIME_TYPES[$extension] : null;
+        return array_key_exists($extension, self::MIME_TYPES) ? self::MIME_TYPES[$extension] : null;
     }
 
     /**
-     * @param string $method
-     * @param string $path
+     * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \React\Http\Response $response
      * @return \React\Http\Response
      */
-    private function serveHttpResponse($method, $path, \React\Http\Response $response)
+    private function serveHttpResponse(\Psr\Http\Message\ServerRequestInterface $request, \React\Http\Response $response)
     {
         $code = $response->getStatusCode();
-        $message = "$code $method $path";
+        $ip = $request->getServerParams()['REMOTE_ADDR'];
+        $method = $request->getMethod();
+        $path = $request->getUri()->getPath();
+        $size = $response->getBody()->getSize();
+        $message = "$ip \"$method $path\" $code $size";
 
         if ($code - 200 < 100) {
             $this->tracer->notice($message);
@@ -272,16 +275,37 @@ class HttpRequestHandler
      */
     private function getDataErrors()
     {
-        return function (\Psr\Http\Message\ServerRequestInterface $request, $id = null) {
+        return function (
+            /** @noinspection PhpUnusedParameterInspection */
+            \Psr\Http\Message\ServerRequestInterface $request,
+            $id = null
+        ) {
             if (null === $id) {
                 return static::jsonResponse(200, ['data' => $this->errorCollection->getErrors()]);
             }
 
             if ($error = $this->errorCollection->getError($id)) {
-                return static::jsonResponse(200, ['data' => $error]);
+                return static::jsonResponse(200, $error);
             }
 
             return static::jsonResponse(404, []);
+        };
+    }
+
+    /**
+     * @return \Closure
+     */
+    private function getMeta()
+    {
+        return function (\Psr\Http\Message\ServerRequestInterface $request) {
+            return static::jsonResponse(
+                200,
+                [
+                    'data' => [
+                        'application' => Application::getInstance()->getMeta($request->getUri()->getHost())
+                    ]
+                ]
+            );
         };
     }
 }

@@ -1,0 +1,49 @@
+#alerts .alert:last-child {
+    margin-bottom:0;
+}
+
+.text-error-session-id {
+    font-family:monospace;
+    font-size:1rem;
+}
+.header-bar {
+    margin:0;
+    height:50px;
+    box-shadow: 0 5px 10px 0 #CCC;
+}
+.header-bar-content {
+    position: absolute;
+    top: 50%;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+.main {
+}
+.main-content {
+    top: 50px;
+    padding: 0 0 50px;
+}
+.footer-bar {
+    margin:0;
+    height:50px;
+    box-shadow: 0 -5px 10px 0 #CCC;
+}
+.footer-bar-content {
+    position: absolute;
+    top: 50%;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+
+table.table-errors td {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+table.table-errors td:first-child {
+    padding-left:15px;
+}
+
+table.table-errors td:last-child {
+    padding-right:15px;
+}

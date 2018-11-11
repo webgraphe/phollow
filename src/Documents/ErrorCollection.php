@@ -4,9 +4,12 @@ namespace Webgraphe\Phollow\Documents;
 
 use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
 use Webgraphe\Phollow\Contracts\ErrorContract;
+use Webgraphe\Phollow\Document;
 
-class ErrorCollection implements ErrorCollectionContract
+class ErrorCollection extends Document implements ErrorCollectionContract
 {
+    const TYPE_ERROR_COLLECTION ='errorCollection';
+
     /** @var ErrorContract[] */
     private $errors = [];
     private $bySeverity = [];
@@ -18,8 +21,8 @@ class ErrorCollection implements ErrorCollectionContract
     {
         $id = $error->getId();
         $this->errors[$id] = $error;
-        $this->bySeverity[$error->getSeverity()][$id] = $id;
-        $this->byHost[$error->getHost()][$id] = $id;
+        $this->bySeverity[$error->getSeverityId()][$id] = $id;
+        $this->byHost[$error->getHostName()][$id] = $id;
         $this->byLocation[$error->getFile() . ':' . $error->getLine()][$id] = $id;
         $this->bySessionId[$error->getSessionId()][$id] = $id;
     }
@@ -51,6 +54,38 @@ class ErrorCollection implements ErrorCollectionContract
                 $keys
             )
         );
+    }
+
+    /**
+     * @param int $severity
+     * @return int[]
+     */
+    public function getSeverity($severity)
+    {
+        return isset($this->bySeverity[$severity]) ? $this->bySeverity[$severity] : [];
+    }
+
+    /**
+     * @param int $severity
+     * @return int
+     */
+    public function getSeverityCount($severity)
+    {
+        return isset($this->bySeverity[$severity]) ? count($this->bySeverity[$severity]) : 0;
+    }
+
+    public function getSeverityCounts()
+    {
+        $counts = array_map(
+            function ($severity) {
+                return $this->getSeverityCount($severity);
+            },
+            array_flip(ErrorContract::E_STRINGS)
+        );
+
+        arsort($counts);
+
+        return $counts;
     }
 
     /**
@@ -95,10 +130,26 @@ class ErrorCollection implements ErrorCollectionContract
     }
 
     /**
-     * @return mixed|ErrorContract[]
+     * @return int A whole number
      */
-    public function jsonSerialize()
+    public function count()
     {
-        return $this->getErrors();
+        return count($this->errors);
+    }
+
+    /**
+     * @return string
+     */
+    public function getDocumentType()
+    {
+        return self::TYPE_ERROR_COLLECTION;
+    }
+
+    /**
+     * @return array
+     */
+    public function toArray()
+    {
+        return $this->errors;
     }
 }

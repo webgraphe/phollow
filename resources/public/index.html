@@ -1,14 +1,96 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-    <title>Webgraphe Phollow</title>
-    <link media="all" rel="stylesheet" type="text/css" href="css/bootstrap.min.css" />
-    <link media="all" rel="stylesheet" type="text/css" href="css/phollow.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+          integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://use.fontawesome.com/releases/v5.5.0/css/all.css"
+          integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="css/phollow.css">
+    <link id="favicon" rel="shortcut icon" type="image/png" href="images/hat-black.png">
+    <title id="title">webgraphe/phollow</title>
 </head>
 <body>
-    Welcome!
-</body>
-<script src="js/jquery.min.js"></script>
-<script src="js/bootstrap.bundle.min.js"></script>
+<div class="container-fluid">
+    <div class="row bg-light text-dark fixed-top header-bar m-0">
+        <div class="col header-bar-content">
+            <span class="text-muted">webgraphe</span>
+            <strong>phollow</strong>
+            <small id="status"><span class="text-warning">Connecting</span></small>
+        </div>
+    </div>
+    <div class="row main">
+        <div class="col-xl-12 m-0 p-0 main-content" id="alerts"></div>
+        <div class="col-xl-12 m-0 p-0 main-content">
+            <table class="table table-sm table-borderless table-hover table-light small m-0 table-errors">
+                <tbody id="tbody-errors">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="row bg-light text-dark fixed-bottom footer-bar">
+        <div class="col footer-bar-content">
+            <i class="fas fa-fw fa-copyright"></i> 2018 Webgraphe
+        </div>
+    </div>
+</div>
+<div id="modal-trace" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="Trace" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5>Trace</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true"><i class="fas fa-fw fa-lg fa-times"></i></span>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-trace-body"></div>
+        </div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"
+        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.12/handlebars.min.js"></script>
+<script id="template-error-row" type="text/x-handlebars-template">
+    <tr class="table-{{state}}">
+        <td width="1px"><samp>{{timestamp}}</samp></td>
+        <td width="1px"><span class="badge badge-{{state}}">{{severityName}}</span></td>
+        <td width="1px">
+            {{#if applicationName}}
+            {{applicationName}}
+            {{else}}
+            <i class="fas fa-fw fa-ban text-muted"></i>
+            {{/if}}
+        </td>
+        <td width="1px">
+            {{#if hostName}}
+            {{hostName}}
+            {{else}}
+            <i class="fas fa-fw fa-ban text-muted"></i>
+            {{/if}}
+        </td>
+        <td width="1px" class="text-error-session-id">{{sessionId}}</td>
+        <td>{{message}}</td>
+        <td width="1px"><samp>{{file}}:{{line}}</samp></td>
+    </tr>
+</script>
+<script id="template-alert" type="text/x-handlebars-template">
+    <article class="alert alert-{{type}}">
+        <h5 class="message-header">
+            <i class="fas fa-fw fa-lg fa-{{icon}}"></i>
+            {{title}}
+        </h5>
+        <div class="message-body">{{body}}</div>
+    </article>
+</script>
 <script src="js/phollow.js"></script>
+</body>
 </html>
