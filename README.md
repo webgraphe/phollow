@@ -54,7 +54,7 @@ ErrorHandler::create()
 
 ### Launch the server
 
-The error handler will only track errors if the file tailed by the server exists (e.g. usually only available when
+The error handler will only track errors if the `phollow.sock` socket exists (e.g. usually only available when
 the server is running):
 
 ```bash
