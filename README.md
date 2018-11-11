@@ -61,6 +61,13 @@ the server is running):
 vendor/bin/phollow run --colors
 ```
 
+Once the server is launched, the prompt should display a message similar to this:
+```
+...
+Listening to HTTP requests on http://local.test:8080
+Webgraphe Phollow server is ready - Press CTRL-C to stop
+```
+
 Hit the URL for the HTTP server listed.
 
 To get support on the server commands:
