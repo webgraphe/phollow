@@ -409,8 +409,12 @@ USAGE;
         $this->tracer->setup("Preparing Log socket");
 
         $this->unlinkFile($logFile);
-
-        return new \React\Socket\UnixServer($logFile, $loop);
+        $socket = new \React\Socket\UnixServer($logFile, $loop);
+        $oldMask = umask(0777);
+        chmod($logFile, 0666);
+        umask($oldMask);
+        
+        return $socket;
     }
 
     /**
