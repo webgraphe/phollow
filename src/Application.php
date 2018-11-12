@@ -13,7 +13,7 @@ use Webgraphe\Phollow\Documents\ErrorCollection;
 class Application
 {
     /** @var string */
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
     /** @var string */
     const DEFAULT_ROUTE_IP = '0.0.0.0';
 
