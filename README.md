@@ -1,15 +1,17 @@
 # Live PHP Error Tracking
 
-[Phollow](https://github.com/webgraphe/phollow) (pronounced \\ˈfälō\\) is a PHP error tracking utility for developers
-running a server in the background to track your application's errors.
+[Phollow](https://github.com/webgraphe/phollow) (pronounced \\ˈfälō\\) is a lightweight PHP script monitoring utility 
+for developers running a server in the background to track your application's performance and errors.
 
-This library is **not ready for production** use. It also relies on Unix sockets and is therefore not compatible
-natively on Windows machines.
+This library is **not ready for production** use. It relies on Unix sockets and is therefore incompatible
+_natively_ on Windows machines.
 
 ## Installation
 
-Put simply, the installation process consists in adding a development dependency to your project's Composer and
-registering the error handler. Your bare bones installation goes like this:
+Put simply, the installation process consists in adding a development dependency to your project's
+[Composer](http://www.getcomposer.org) and registering the error handler.
+
+Your bare bones installation goes like this:
 
 ### Add dependency on your project
 
