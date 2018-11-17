@@ -16,13 +16,13 @@ class ScriptStarted extends Document
     /** @var string */
     private $scriptFilename;
     /** @var string */
+    private $path;
+    /** @var string */
     private $hostname;
     /** @var string */
     private $serverIp;
     /** @var string */
     private $remoteIp;
-    /** @var float */
-    private $time;
     /** @var string */
     private $applicationName;
     /** @var string */
@@ -33,18 +33,18 @@ class ScriptStarted extends Document
      */
     public static function fromGlobals()
     {
-        $ru = getrusage();
-        $time = microtime(true) - $ru['ru_utime.tv_usec'] - $ru['ru_utime.tv_sec'];
-
         $instance = new static;
-        $instance->serverApi = PHP_SAPI;
-        $instance->method = self::arrayGet($_SERVER, 'REQUEST_METHOD');
-        $instance->hostname = self::arrayGet($_SERVER, 'HOSTNAME');
-        $instance->script = self::arrayGet($_SERVER, 'SCRIPT');
+        $instance->serverApi = strtoupper(PHP_SAPI);
+        $instance->method = self::arrayGet($_SERVER, 'REQUEST_METHOD', $instance->serverApi);
+        $instance->hostname = self::arrayGet($_SERVER, 'HTTP_HOST', 'localhost');
+        $instance->script = self::arrayGet($_SERVER, 'SCRIPT_NAME');
+        if (empty($_SERVER['HTTP_HOST'])) {
+            $instance->script = self::arrayGet($_SERVER, 'PWD') . DIRECTORY_SEPARATOR . $instance->script;
+        }
         $instance->scriptFilename = realpath($_SERVER['SCRIPT_FILENAME']);
-        $instance->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR');
-        $instance->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR');
-        $instance->time = $time;
+        $instance->path = $instance->script ?: $instance->scriptFilename;
+        $instance->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR', '127.0.0.1');
+        $instance->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR', '127.0.0.1');
 
         return $instance;
     }
@@ -58,10 +58,10 @@ class ScriptStarted extends Document
         $this->method = self::arrayGet($data, 'method');
         $this->script = self::arrayGet($data, 'script');
         $this->scriptFilename = self::arrayGet($data, 'scriptFilename');
+        $this->path = self::arrayGet($data, 'path');
         $this->hostname = self::arrayGet($data, 'hostname');
         $this->serverIp = self::arrayGet($data, 'serverIp');
         $this->remoteIp = self::arrayGet($data, 'remoteIp');
-        $this->time = self::arrayGet($data, 'time');
         $this->applicationName = self::arrayGet($data, 'applicationName');
     }
 
@@ -94,10 +94,10 @@ class ScriptStarted extends Document
             'serverApi' => $this->serverApi,
             'script' => $this->script,
             'scriptFilename' => $this->scriptFilename,
+            'path' => $this->path,
             'hostname' => $this->hostname,
             'serverIp' => $this->serverIp,
             'remoteIp' => $this->remoteIp,
-            'time' => $this->time,
             'applicationName' => $this->applicationName,
         ];
     }

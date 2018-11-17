@@ -5,19 +5,22 @@ class Phollow {
         this.newErrorCount = 0;
         this.meta = null;
         this.ws = null;
-        this.templateErrorRow = null;
+        this.templateScriptTable = null;
+        this.templateScriptDataElement = null;
         this.templateAlert = null;
+        this.$scriptContainer = null;
+        this.scriptElements = {};
     }
 
     run(done) {
         let that = this;
-        window.onblur = function() {
+        window.onblur = function () {
             that.isWindowActive = false;
         };
         window.onfocus = function () {
             that.isWindowActive = true;
             if (that.errorCount) {
-                Phollow.setHat('black');
+                Phollow.setHat('green');
             }
             that.newErrorCount = 0;
             Phollow.setTitle(that.newErrorCount);
@@ -43,10 +46,33 @@ class Phollow {
                         that.compileTemplates();
                     }
                 )
+                .then(
+                    function () {
+                        that.$scriptContainer = $('#script-container');
+                        $(document).on(
+                            'click',
+                            '.script-table thead',
+                            function () {
+                                let $tbody = $(this).siblings('tbody');
+                                if ($tbody.is(':visible')) {
+                                    $tbody.hide();
+                                } else {
+                                    $tbody.show();
+                                }
+                            }
+                        );
+                        $(function () {
+                            $('body').tooltip(
+                                {
+                                    selector: '[data-toggle="tooltip"]'
+                                }
+                            );
+                        })
+                    }
+                )
                 .then(done);
         } catch (e) {
             this.pushAlert('danger', 'Initialization exception', e);
-            console.log("Exception", e);
         }
     }
 
@@ -72,27 +98,43 @@ class Phollow {
         this.ws.onopen = function () {
             Phollow.setHat('green');
             Phollow.setTitle(0);
-            $('#status').empty().append($('<span class="text-success">').text('Connected'));
+            $('#status').toggleClass('badge-warning badge-success').text('Connected');
         };
         this.ws.onclose = function () {
             that.pushAlert('danger', 'WebSocket Connection', "The connection has been closed by the server");
             that.ws = null;
             Phollow.setTitle(0);
-            $('#status').empty().append($('<span class="text-danger">').text('Disconnected'));
+            $('#status').toggleClass('badge-success badge-danger').text('Disconnected');
             $('.header-bar').addClass('alert-danger');
         };
         this.ws.onmessage = function (message) {
-            console.log(message);
             try {
                 const document = JSON.parse(message.data);
-                const type = document['meta']['type'];
-                const data = document['data'];
+                const type = document.meta.type;
                 switch (type) {
+                    case 'connectionOpened':
+                        that.openConnection(document);
+                        break;
+                    case 'scriptStarted':
+                        that.startScript(document);
+                        break;
                     case 'error':
-                        that.pushError(data);
+                        that.addError(document);
+                        break;
+                    case 'scriptEnded':
+                        that.endScript(document);
+                        break;
+                    case 'connectionClosed':
+                        that.closeConnection(document);
                         break;
                     default:
                         console.log("Unknown message type", type);
+
+                        return false;
+                }
+
+                if (!that.isWindowActive) {
+                    Phollow.setHat('red');
                 }
             } catch (exception) {
                 console.log("Exception", exception, message.data);
@@ -104,15 +146,39 @@ class Phollow {
         };
     }
 
-    pushError(error) {
-        if (!this.isWindowActive) {
-            if (!this.newErrorCount) {
-                Phollow.setHat('red');
-            }
-            Phollow.setTitle(++this.newErrorCount);
-        }
+    openConnection(connectionOpened) {
+        const scriptId = connectionOpened['meta']['scriptId'];
+        const $scriptTable = $(this.templateScriptTable(connectionOpened));
+        this.scriptElements[scriptId] = {
+            errorCount: 0,
+            tbody: $scriptTable.find('tbody'),
+            thead_tr: $scriptTable.find('thead tr'),
+            progress: $scriptTable.find('thead tr th i.script-progress'),
+            errorCountBadge: $scriptTable.find('thead tr th span.script-error-count'),
+            api: $scriptTable.find('.script-api'),
+            hostname: $scriptTable.find('.script-hostname'),
+            method: $scriptTable.find('.script-method'),
+            path: $scriptTable.find('.script-path'),
+            time: $scriptTable.find('.script-time'),
+            feedback: $scriptTable.find('.script-feedback'),
+        };
+        this.$scriptContainer.append($scriptTable);
+    }
+
+    startScript(scriptStarted) {
+        const scriptId = scriptStarted['meta']['scriptId'];
+        let scriptElement = this.scriptElements[scriptId];
+        scriptElement.thead_tr.toggleClass('bg-warning bg-primary');
+        scriptElement.progress.toggleClass('fa-stopwatch fa-spin fa-spinner');
+        scriptElement.api.text(scriptStarted['data']['serverApi']);
+        scriptElement.hostname.text(scriptStarted['data']['hostname']);
+        scriptElement.method.text(scriptStarted['data']['method']);
+        scriptElement.path.text(scriptStarted['data']['path']);
+    }
+
+    addError(error) {
         ++this.errorCount;
-        switch (error['severityName']) {
+        switch (error['data']['severityName']) {
             case 'ERROR':
             case 'PARSE':
             case 'CORE_ERROR':
@@ -142,11 +208,39 @@ class Phollow {
                 error['state'] = 'light';
                 break;
         }
-        const $error = $(
-            this.templateErrorRow(error)
-        );
-        $('#tbody-errors').append($error);
-    };
+        const $error = $(this.templateScriptDataElement(error));
+        const scriptId = error['meta']['scriptId'];
+        let scriptElement = this.scriptElements[scriptId];
+        scriptElement.tbody.append($error);
+        if (!scriptElement.errorCount) {
+            scriptElement.errorCountBadge.toggleClass('badge-secondary badge-warning');
+        }
+        scriptElement.errorCountBadge.text(++scriptElement.errorCount);
+    }
+
+    endScript(scriptEnded) {
+        const scriptId = scriptEnded['meta']['scriptId'];
+        let scriptElement = this.scriptElements[scriptId];
+        scriptElement.thead_tr.toggleClass('bg-primary bg-success');
+        scriptElement.progress.toggleClass('fa-spin fa-spinner fa-check-circle');
+        scriptElement.time.html('<samp>' + scriptEnded['data']['time'].toFixed(3) + '<samp> <i class="fas fa-fw fa-stopwatch"></i>');
+        if (!scriptElement.errorCount) {
+            scriptElement.errorCountBadge.toggleClass('badge-secondary badge-success');
+        }
+    }
+
+    closeConnection(connectionClosed) {
+        const scriptId = connectionClosed['meta']['scriptId'];
+        let scriptElement = this.scriptElements[scriptId];
+        if (scriptElement.thead_tr.hasClass('bg-primary')) {
+            scriptElement.thead_tr.toggleClass('bg-primary bg-danger');
+            scriptElement.time.html('<i class="fas fa-fw fa-question-circle"></i>');
+            scriptElement.feedback.text('Connection closed unexpectedly');
+            scriptElement.progress.toggleClass('fa-spin fa-spinner fa-exclamation-triangle');
+        } else {
+            scriptElement.thead_tr.toggleClass('bg-success bg-secondary');
+        }
+    }
 
     pushAlert(level, title, body) {
         const $alert = $(
@@ -171,7 +265,8 @@ class Phollow {
     }
 
     compileTemplates() {
-        this.templateErrorRow = Phollow.compileTemplate('template-error-row');
+        this.templateScriptTable = Phollow.compileTemplate('template-script-table');
+        this.templateScriptDataElement = Phollow.compileTemplate('template-script-data-element');
         this.templateAlert = Phollow.compileTemplate('template-alert');
     }
 }

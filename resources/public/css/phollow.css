@@ -35,15 +35,27 @@
     transform: translateY(-50%);
 }
 
-table.table-errors td {
+table.script-table thead {
+    cursor:pointer;
+}
+
+table.script-table td, table.script-table th {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
-table.table-errors td:first-child {
+table.script-table td:first-child, table.script-table th:first-child {
     padding-left:15px;
 }
 
-table.table-errors td:last-child {
+table.script-table td:last-child, table.script-table th:last-child {
     padding-right:15px;
+}
+
+.script-heading-row {
+    cursor:pointer;
+}
+
+#script-container table:last-child {
+    margin-bottom:50px;
 }

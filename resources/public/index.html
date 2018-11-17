@@ -21,16 +21,12 @@
         <div class="col header-bar-content">
             <span class="text-muted">webgraphe</span>
             <strong>phollow</strong>
-            <small id="status"><span class="text-warning">Connecting</span></small>
+            <small class="badge badge-warning" id="status">Connecting</small>
         </div>
     </div>
     <div class="row main">
         <div class="col-xl-12 m-0 p-0 main-content" id="alerts"></div>
-        <div class="col-xl-12 m-0 p-0 main-content">
-            <table class="table table-sm table-borderless table-hover table-light small m-0 table-errors">
-                <tbody id="tbody-errors">
-                </tbody>
-            </table>
+        <div class="col-xl-12 m-0 p-0 main-content" id="script-container">
         </div>
     </div>
     <div class="row bg-light text-dark fixed-bottom footer-bar">
@@ -55,17 +51,62 @@
 <script src="https://code.jquery.com/jquery-3.3.1.min.js"
         integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
         crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
         integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
         crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.12/handlebars.min.js"></script>
-<script id="template-error-row" type="text/x-handlebars-template">
+
+<script id="template-script-table" type="text/x-handlebars-template">
+    <table data-script-id="{{meta.scriptId}}"
+           class="table table-sm table-borderless table-hover table-light small script-table">
+        <thead>
+        <tr class="bg-warning text-light">
+            <th colspan="4">
+                <span class="float-right">
+                    <span class="script-feedback"></span>
+                    &nbsp;
+                    <span class="float-right script-time"
+                          title="Elapsed time (seconds)"
+                          data-toggle="tooltip">
+                    </span>
+                </span>
+                <i class="fas fa-fw fa-stopwatch script-progress"></i>
+                &nbsp;
+                <samp title="Script ID" data-toggle="tooltip">#{{meta.scriptId}}</samp>
+                &nbsp;
+                <span class="badge badge-secondary script-error-count" title="Error Count" data-toggle="tooltip">0</span>
+                &nbsp;
+                <span class="badge badge-light script-api" title="Server API" data-toggle="tooltip">
+                    <i class="fas fa-fw fa-ban text-muted"></i>
+                </span>
+                &nbsp;
+                <samp class="script-hostname" title="Host Name" data-toggle="tooltip">
+                    <i class="fas fa-fw fa-ban text-muted"></i>
+                </samp>
+                &nbsp;
+                <samp class="script-method" title="Method" data-toggle="tooltip">
+                    <i class="fas fa-fw fa-ban text-muted"></i>
+                </samp>
+                <samp class="script-path" title="Script Path" data-toggle="tooltip">
+                    <i class="fas fa-fw fa-ban text-muted"></i>
+                </samp>
+            </th>
+        </tr>
+        </thead>
+        <tbody style="display:none">
+        </tbody>
+    </table>
+</script>
+
+<script id="template-script-data-element" type="text/x-handlebars-template">
     <tr class="table-{{state}}">
-        <td width="1px"><samp>{{timestamp}}</samp></td>
-        <td width="1px"><span class="badge badge-{{state}}">{{severityName}}</span></td>
-        <td width="1px" class="text-error-script-id">{{scriptId}}</td>
-        <td>{{message}}</td>
-        <td width="1px"><samp>{{file}}:{{line}}</samp></td>
+        <td width="1px"><samp>{{data.timestamp}}</samp></td>
+        <td width="1px"><span class="badge badge-{{state}}">{{data.severityName}}</span></td>
+        <td>{{data.message}}</td>
+        <td width="1px" class="text-right"><samp>{{data.file}}:{{data.line}}</samp></td>
     </tr>
 </script>
 <script id="template-alert" type="text/x-handlebars-template">

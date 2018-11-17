@@ -27,12 +27,15 @@ class ErrorHandler
     private $errorHandler;
     /** @var \Closure|null */
     private $shutdownFunction;
+    /** @var float */
+    private $startTime;
 
     /**
      * @param Configuration $configuration
      */
     protected function __construct(Configuration $configuration)
     {
+        $this->startTime = microtime(true);
         $this->scriptStart = ScriptStarted::fromGlobals();
         $this->configuration = $configuration;
         $logFile = $configuration->getLogFile();
@@ -88,7 +91,7 @@ class ErrorHandler
                         $this->__invoke($data['type'], "LAST: " . $data['message'], $data['file'], $data['line']);
                     }
 
-                    $this->writeToSocket(ScriptEnded::fromGlobal());
+                    $this->writeToSocket(ScriptEnded::fromGlobal($this->startTime));
 
                     return false;
                 }

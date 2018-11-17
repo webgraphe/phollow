@@ -12,10 +12,14 @@ class ScriptEnded extends Document
     /** @var float */
     private $time;
 
-    public static function fromGlobal()
+    public static function fromGlobal($startTime = null)
     {
         $instance = new static;
-        $instance->time = microtime(true);
+        $ru = getrusage();
+        $instance->time = ($ru['ru_utime.tv_usec'] / 1000000) + $ru['ru_utime.tv_sec'];
+        if (null !== $startTime) {
+            $instance->time += microtime(true) - $startTime;
+        }
 
         return $instance;
     }
