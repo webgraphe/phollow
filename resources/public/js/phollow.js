@@ -36,12 +36,7 @@ class Phollow {
                 )
                 .then(
                     function () {
-                        return $.ajax(
-                            {
-                                url: 'data/meta',
-                                dataType: 'json'
-                            }
-                        );
+                        return $.ajax('data/meta');
                     }
                 )
                 .then(
@@ -54,12 +49,7 @@ class Phollow {
                 )
                 .then(
                     function () {
-                        return $.ajax(
-                            {
-                                url: 'data/documents',
-                                dataType: 'json'
-                            }
-                        );
+                        return $.ajax('data/documents');
                     }
                 )
                 .then(

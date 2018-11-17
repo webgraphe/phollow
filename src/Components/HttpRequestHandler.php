@@ -208,7 +208,7 @@ class HttpRequestHandler
         return static::httpResponse(
             $statusCode,
             null !== $data ? json_encode($data) : null,
-            array_merge($headers, ['Content-type' => 'application/json'])
+            array_merge($headers, ['Content-Type' => 'application/json'])
         );
     }
 
