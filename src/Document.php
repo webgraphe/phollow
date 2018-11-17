@@ -58,6 +58,7 @@ abstract class Document implements \JsonSerializable
     {
         return [
             'meta' => [
+                'id' => $this->id,
                 'type' => $this->getDocumentType(),
                 'scriptId' => $this->scriptId,
             ],

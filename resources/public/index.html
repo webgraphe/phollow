@@ -21,7 +21,7 @@
         <div class="col header-bar-content">
             <span class="text-muted">webgraphe</span>
             <strong>phollow</strong>
-            <small class="badge badge-warning" id="status">Connecting</small>
+            <small class="badge badge-light" id="status"></small>
         </div>
     </div>
     <div class="row main">
@@ -35,16 +35,53 @@
         </div>
     </div>
 </div>
-<div id="modal-trace" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="Trace" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<div id="modal-error" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="Trace" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header bg-light">
-                <h5>Trace</h5>
+            <div class="modal-header" id="modal-error-header">
+                <h5 class="mb-0">
+                    <span class="badge" id="modal-error-severity"></span>
+                    #<samp id="modal-error-id"></samp>
+                    from script
+                    #<samp id="modal-error-script-id"></samp>
+                    <i class="fas fa-fw fa-at"></i>
+                    <samp id="modal-error-timestamp"></samp>
+                </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true"><i class="fas fa-fw fa-lg fa-times"></i></span>
+                    <span aria-hidden="true"><i class="fas fa-fw fa-times"></i></span>
                 </button>
             </div>
-            <div class="modal-body" id="modal-trace-body"></div>
+            <div class="modal-body">
+                <p><span id="modal-error-message"></span></p>
+                <strong>Trace</strong>
+                <pre id="modal-error-trace"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="modal-loading"
+     class="modal fade"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="Loading"
+     aria-hidden="true"
+     data-backdrop="static"
+     data-keyboard="false">
+    <div class="modal-dialog modal-xs">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-fw fa-spin fa-spinner"></i>
+                    Loading
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar"
+                         id="modal-loading-progress-bar"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -61,9 +98,11 @@
 
 <script id="template-script-table" type="text/x-handlebars-template">
     <table data-script-id="{{meta.scriptId}}"
-           class="table table-sm table-borderless table-hover table-light small script-table">
+           class="table table-sm table-borderless table-hover table-light small mb-0 script-table">
         <thead>
         <tr class="bg-warning text-light">
+            <th width="1px"><i class="fas fa-fw fa-stopwatch script-progress"></i></th>
+            <th width="1px" class="text-right"><samp title="Script ID" data-toggle="tooltip">#{{meta.scriptId}}</samp></th>
             <th colspan="4">
                 <span class="float-right">
                     <span class="script-feedback"></span>
@@ -73,10 +112,6 @@
                           data-toggle="tooltip">
                     </span>
                 </span>
-                <i class="fas fa-fw fa-stopwatch script-progress"></i>
-                &nbsp;
-                <samp title="Script ID" data-toggle="tooltip">#{{meta.scriptId}}</samp>
-                &nbsp;
                 <span class="badge badge-secondary script-error-count" title="Error Count" data-toggle="tooltip">0</span>
                 &nbsp;
                 <span class="badge badge-light script-api" title="Server API" data-toggle="tooltip">
@@ -103,6 +138,8 @@
 
 <script id="template-script-data-element" type="text/x-handlebars-template">
     <tr class="table-{{state}}">
+        <td width="1px"></td>
+        <td width="1px" class="text-right"><samp title="Document ID" data-toggle="tooltip">#{{meta.id}}</samp></td>
         <td width="1px"><samp>{{data.timestamp}}</samp></td>
         <td width="1px"><span class="badge badge-{{state}}">{{data.severityName}}</span></td>
         <td>{{data.message}}</td>

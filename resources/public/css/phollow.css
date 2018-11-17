@@ -39,6 +39,10 @@ table.script-table thead {
     cursor:pointer;
 }
 
+table.script-table tbody tr {
+    cursor:pointer;
+}
+
 table.script-table td, table.script-table th {
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -52,10 +56,13 @@ table.script-table td:last-child, table.script-table th:last-child {
     padding-right:15px;
 }
 
-.script-heading-row {
-    cursor:pointer;
-}
-
 #script-container table:last-child {
     margin-bottom:50px;
+}
+
+@media (min-width: 768px) {
+    .modal-xl {
+        width: 90%;
+        max-width:1200px;
+    }
 }

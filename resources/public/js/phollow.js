@@ -13,27 +13,55 @@ class Phollow {
     }
 
     run(done) {
-        let that = this;
-        window.onblur = function () {
-            that.isWindowActive = false;
-        };
-        window.onfocus = function () {
-            that.isWindowActive = true;
-            if (that.errorCount) {
-                Phollow.setHat('green');
-            }
-            that.newErrorCount = 0;
-            Phollow.setTitle(that.newErrorCount);
-        };
         try {
             let that = this;
-            $.when($.ajax('data/meta'))
+            $.when()
                 .then(
-                    function (data) {
-                        that.setMeta(data.data);
+                    function () {
+                        window.onblur = function () {
+                            that.isWindowActive = false;
+                        };
+                        window.onfocus = function () {
+                            that.isWindowActive = true;
+                            if (that.errorCount) {
+                                Phollow.setHat('green');
+                            }
+                            that.newErrorCount = 0;
+                            Phollow.setTitle(that.newErrorCount);
+                        };
+                        $('#status').toggleClass('badge-light badge-warning').text('Connecting');
+                        that.compileTemplates();
+                        that.$scriptContainer = $('#script-container');
+                    }
+                )
+                .then(
+                    function () {
+                        return $.ajax('data/meta');
+                    }
+                )
+                .then(
+                    function (meta) {
+                        that.setMeta(meta.data);
                     },
                     function () {
                         throw new Error("Failed fetching meta");
+                    }
+                )
+                .then(
+                    function () {
+                        return $.ajax('data/documents');
+                    }
+                )
+                .then(
+                    function (documents) {
+                        let $progressBar = $('#modal-loading-progress-bar');
+                        for (let i = 0; i < documents.data.length; ++i) {
+                            that.processDocument(documents.data[i]);
+                            $progressBar.css('width', (i * 100 / documents.data.length) + '%');
+                        }
+                    },
+                    function () {
+                        throw new Error("Failed fetching data");
                     }
                 )
                 .then(
@@ -43,24 +71,53 @@ class Phollow {
                 )
                 .then(
                     function () {
-                        that.compileTemplates();
-                    }
-                )
-                .then(
-                    function () {
-                        that.$scriptContainer = $('#script-container');
-                        $(document).on(
-                            'click',
-                            '.script-table thead',
-                            function () {
-                                let $tbody = $(this).siblings('tbody');
-                                if ($tbody.is(':visible')) {
-                                    $tbody.hide();
-                                } else {
-                                    $tbody.show();
+                        $(document)
+                            .on(
+                                'click',
+                                '.script-table thead',
+                                function () {
+                                    let $tbody = $(this).siblings('tbody');
+                                    if ($tbody.is(':visible')) {
+                                        $tbody.hide();
+                                    } else {
+                                        $tbody.show();
+                                    }
                                 }
-                            }
-                        );
+                            )
+                            .on(
+                                'click',
+                                '.script-table tbody tr',
+                                function () {
+                                    let error = $(this).data('error');
+                                    $('#modal-error-header')
+                                        .toggleClass(
+                                            function (index, className) {
+                                                return className
+                                                    .split(' ')
+                                                    .filter(className => 'alert-' === className.substr(0, 6))
+                                                    .join(' ');
+                                            }
+                                        )
+                                        .addClass('alert-' + error['state']);
+                                    $('#modal-error-script-id').text(error['meta']['scriptId']);
+                                    $('#modal-error-id').text(error['meta']['id']);
+                                    $('#modal-error-timestamp').text(error['data']['timestamp']);
+                                    $('#modal-error-severity')
+                                        .toggleClass(
+                                            function (index, className) {
+                                                return className
+                                                    .split(' ')
+                                                    .filter(className => 'badge-' === className.substr(0, 6))
+                                                    .join(' ');
+                                            }
+                                        )
+                                        .addClass('badge-' + error['state'])
+                                        .text(error['data']['severityName']);
+                                    $('#modal-error-message').text(error['data']['message']);
+                                    $('#modal-error-trace').text(error['data']['trace'].join("\n"));
+                                    $('#modal-error').modal('show');
+                                }
+                            );
                         $(function () {
                             $('body').tooltip(
                                 {
@@ -70,7 +127,19 @@ class Phollow {
                         })
                     }
                 )
-                .then(done);
+                .then(
+                    function () {
+                        if (done) {
+                            done();
+                        }
+                        setTimeout(
+                            function () {
+                                $('#modal-loading').modal('hide');
+                            },
+                            500
+                        );
+                    }
+                );
         } catch (e) {
             this.pushAlert('danger', 'Initialization exception', e);
         }
@@ -110,27 +179,8 @@ class Phollow {
         this.ws.onmessage = function (message) {
             try {
                 const document = JSON.parse(message.data);
-                const type = document.meta.type;
-                switch (type) {
-                    case 'connectionOpened':
-                        that.openConnection(document);
-                        break;
-                    case 'scriptStarted':
-                        that.startScript(document);
-                        break;
-                    case 'error':
-                        that.addError(document);
-                        break;
-                    case 'scriptEnded':
-                        that.endScript(document);
-                        break;
-                    case 'connectionClosed':
-                        that.closeConnection(document);
-                        break;
-                    default:
-                        console.log("Unknown message type", type);
-
-                        return false;
+                if (!that.processDocument(document)) {
+                    return;
                 }
 
                 if (!that.isWindowActive) {
@@ -163,6 +213,8 @@ class Phollow {
             feedback: $scriptTable.find('.script-feedback'),
         };
         this.$scriptContainer.append($scriptTable);
+
+        return true;
     }
 
     startScript(scriptStarted) {
@@ -174,6 +226,8 @@ class Phollow {
         scriptElement.hostname.text(scriptStarted['data']['hostname']);
         scriptElement.method.text(scriptStarted['data']['method']);
         scriptElement.path.text(scriptStarted['data']['path']);
+
+        return true;
     }
 
     addError(error) {
@@ -209,6 +263,7 @@ class Phollow {
                 break;
         }
         const $error = $(this.templateScriptDataElement(error));
+        $error.data('error', error);
         const scriptId = error['meta']['scriptId'];
         let scriptElement = this.scriptElements[scriptId];
         scriptElement.tbody.append($error);
@@ -216,6 +271,8 @@ class Phollow {
             scriptElement.errorCountBadge.toggleClass('badge-secondary badge-warning');
         }
         scriptElement.errorCountBadge.text(++scriptElement.errorCount);
+
+        return true;
     }
 
     endScript(scriptEnded) {
@@ -227,6 +284,8 @@ class Phollow {
         if (!scriptElement.errorCount) {
             scriptElement.errorCountBadge.toggleClass('badge-secondary badge-success');
         }
+
+        return true;
     }
 
     closeConnection(connectionClosed) {
@@ -240,6 +299,8 @@ class Phollow {
         } else {
             scriptElement.thead_tr.toggleClass('bg-success bg-secondary');
         }
+
+        return true;
     }
 
     pushAlert(level, title, body) {
@@ -269,10 +330,36 @@ class Phollow {
         this.templateScriptDataElement = Phollow.compileTemplate('template-script-data-element');
         this.templateAlert = Phollow.compileTemplate('template-alert');
     }
+
+    processDocument(document) {
+        const type = document.meta.type;
+        switch (type) {
+            case 'connectionOpened':
+                return this.openConnection(document);
+            case 'scriptStarted':
+                return this.startScript(document);
+            case 'error':
+                return this.addError(document);
+            case 'scriptEnded':
+                return this.endScript(document);
+            case 'connectionClosed':
+                return this.closeConnection(document);
+        }
+
+        console.log("Unknown document type", type);
+
+        return false;
+    }
 }
 
 $(function () {
     let phollow = (new Phollow);
-    phollow.run(function () {
-    });
+    $('#modal-loading')
+        .on(
+            'shown.bs.modal',
+            function () {
+                phollow.run();
+            }
+        )
+        .modal('show');
 });
