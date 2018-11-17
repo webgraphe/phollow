@@ -36,7 +36,12 @@ class Phollow {
                 )
                 .then(
                     function () {
-                        return $.ajax('data/meta');
+                        return $.ajax(
+                            {
+                                url: 'data/meta',
+                                dataType: 'json'
+                            }
+                        );
                     }
                 )
                 .then(
@@ -49,15 +54,21 @@ class Phollow {
                 )
                 .then(
                     function () {
-                        return $.ajax('data/documents');
+                        return $.ajax(
+                            {
+                                url: 'data/documents',
+                                dataType: 'json'
+                            }
+                        );
                     }
                 )
                 .then(
                     function (documents) {
                         let $progressBar = $('#modal-loading-progress-bar');
-                        for (let i = 0; i < documents.data.length; ++i) {
-                            that.processDocument(documents.data[i]);
-                            $progressBar.css('width', (i * 100 / documents.data.length) + '%');
+                        let count = documents['data'].length;
+                        for (let i = 0; i < count; ++i) {
+                            that.processDocument(documents['data'][i]);
+                            $progressBar.css('width', (i * 100 / count) + '%');
                         }
                     },
                     function () {

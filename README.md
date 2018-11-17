@@ -1,4 +1,4 @@
-# Live PHP Error Tracking
+# Live PHP Script Monitoring
 
 [Phollow](https://github.com/webgraphe/phollow) (pronounced \\ˈfälō\\) is a lightweight PHP script monitoring utility 
 for developers running a server in the background to track your application's performance and errors.

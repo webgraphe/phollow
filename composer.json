@@ -5,8 +5,10 @@
     "version": "0.1.1",
     "keywords": [
         "php",
+        "script",
         "error",
-        "tracking"
+        "tracking",
+        "monitoring"
     ],
     "homepage": "https://github.com/webgraphe/phollow",
     "license": "MIT",
