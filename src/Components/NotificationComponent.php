@@ -2,9 +2,9 @@
 
 namespace Webgraphe\Phollow\Components;
 
-use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
-use Webgraphe\Phollow\Documents;
+use Ratchet\MessageComponentInterface;
+use Webgraphe\Phollow\Document;
 use Webgraphe\Phollow\Tracer;
 
 class NotificationComponent implements MessageComponentInterface
@@ -24,7 +24,7 @@ class NotificationComponent implements MessageComponentInterface
      * @param ConnectionInterface $conn
      * @return false|string
      */
-    public static function stringifyConnection(ConnectionInterface $conn)
+    public static function connectionRemoteAddress(ConnectionInterface $conn)
     {
         /** @noinspection PhpUndefinedFieldInspection */
         return $conn->remoteAddress;
@@ -33,18 +33,18 @@ class NotificationComponent implements MessageComponentInterface
     public function onOpen(ConnectionInterface $conn)
     {
         $this->clients->attach($conn);
-        $this->tracer->notice(self::stringifyConnection($conn) . ' Connected');
+        $this->tracer->notice(self::connectionRemoteAddress($conn) . ' Connected');
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $this->tracer->info(self::stringifyConnection($from) . " (ignored) $msg");
+        $this->tracer->info(self::connectionRemoteAddress($from) . " (ignored) $msg");
     }
 
     public function onClose(ConnectionInterface $conn)
     {
         $this->clients->detach($conn);
-        $this->tracer->notice(self::stringifyConnection($conn) . ' Disconnected');
+        $this->tracer->notice(self::connectionRemoteAddress($conn) . ' Disconnected');
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e)
@@ -54,10 +54,10 @@ class NotificationComponent implements MessageComponentInterface
         $conn->close();
     }
 
-    public function notifyNewError(Documents\Error $error)
+    public function notifyNewDocument(Document $document)
     {
         foreach ($this->clients as $client) {
-            $client->send(json_encode($error));
+            $client->send(json_encode($document));
         }
     }
 }

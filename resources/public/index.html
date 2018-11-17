@@ -63,21 +63,7 @@
     <tr class="table-{{state}}">
         <td width="1px"><samp>{{timestamp}}</samp></td>
         <td width="1px"><span class="badge badge-{{state}}">{{severityName}}</span></td>
-        <td width="1px">
-            {{#if applicationName}}
-            {{applicationName}}
-            {{else}}
-            <i class="fas fa-fw fa-ban text-muted"></i>
-            {{/if}}
-        </td>
-        <td width="1px">
-            {{#if hostName}}
-            {{hostName}}
-            {{else}}
-            <i class="fas fa-fw fa-ban text-muted"></i>
-            {{/if}}
-        </td>
-        <td width="1px" class="text-error-session-id">{{sessionId}}</td>
+        <td width="1px" class="text-error-script-id">{{scriptId}}</td>
         <td>{{message}}</td>
         <td width="1px"><samp>{{file}}:{{line}}</samp></td>
     </tr>

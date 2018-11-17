@@ -3,7 +3,7 @@
 namespace Webgraphe\Phollow\Components;
 
 use Webgraphe\Phollow\Application;
-use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
+use Webgraphe\Phollow\Documents\DocumentCollection;
 use Webgraphe\Phollow\Tracer;
 
 class HttpRequestHandler
@@ -23,7 +23,7 @@ class HttpRequestHandler
         'png' => 'image/png',
     ];
 
-    /** @var ErrorCollectionContract */
+    /** @var DocumentCollection */
     private $errorCollection;
     /** @var Tracer */
     private $tracer;
@@ -35,12 +35,12 @@ class HttpRequestHandler
     private $documentRoot;
 
     /**
-     * @param ErrorCollectionContract $errorCollection
+     * @param DocumentCollection $errorCollection
      * @param Tracer $tracer
      * @param string $documentRoot
      * @param string $origin
      */
-    protected function __construct(ErrorCollectionContract $errorCollection, Tracer $tracer, $documentRoot, $origin = '')
+    protected function __construct(DocumentCollection $errorCollection, Tracer $tracer, $documentRoot, $origin = '')
     {
         $this->errorCollection = $errorCollection;
         $this->documentRoot = $documentRoot;
@@ -60,13 +60,13 @@ class HttpRequestHandler
     }
 
     /**
-     * @param ErrorCollectionContract $errorCollection
+     * @param DocumentCollection $errorCollection
      * @param Tracer $tracer
      * @param string $origin
      * @return static
      * @throws \Exception
      */
-    public static function create(ErrorCollectionContract $errorCollection, Tracer $tracer, $origin = '')
+    public static function create(DocumentCollection $errorCollection, Tracer $tracer, $origin = '')
     {
         $documentRoot = realpath(self::DOCUMENT_ROOT);
         if (!$documentRoot) {

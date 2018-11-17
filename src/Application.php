@@ -6,9 +6,12 @@ use Ratchet\ComponentInterface;
 use React\EventLoop\LoopInterface;
 use Webgraphe\Phollow\Components\HttpRequestHandler;
 use Webgraphe\Phollow\Components\LogComponent;
-use Webgraphe\Phollow\Components\WritableLogStream;
-use Webgraphe\Phollow\Contracts\ErrorCollectionContract;
-use Webgraphe\Phollow\Documents\ErrorCollection;
+use Webgraphe\Phollow\Documents\ConnectionClosed;
+use Webgraphe\Phollow\Documents\ConnectionOpened;
+use Webgraphe\Phollow\Documents\DocumentCollection;
+use Webgraphe\Phollow\Documents\Error;
+use Webgraphe\Phollow\Documents\ScriptEnded;
+use Webgraphe\Phollow\Documents\ScriptStarted;
 
 class Application
 {
@@ -38,18 +41,16 @@ class Application
     private $httpSocket;
     /** @var \React\Http\Server */
     private $httpServer;
-    /** @var Components\WritableLogStream */
-    private $writableLogStream;
     /** @var Tracer */
     private $tracer;
-    /** @var ErrorCollection */
-    private $errorCollection;
     /** @var Components\LogComponent */
     private $logComponent;
     /** @var \React\Socket\Server */
     private $logSocket;
     /** @var \Ratchet\Server\IoServer */
     private $logServer;
+    /** @var Documents\DocumentCollection */
+    private $documentCollection;
 
     public static function usage()
     {
@@ -96,7 +97,7 @@ USAGE;
     {
         $this->configuration = $configuration ?: new Configuration;
         $this->tracer = $this->configuration->getTracer();
-        $this->errorCollection = new ErrorCollection;
+        $this->documentCollection = DocumentCollection::create();
     }
 
     /**
@@ -147,15 +148,6 @@ USAGE;
 
         $this->loop = $this->prepareLoop();
 
-        $this->writableLogStream = $this->prepareWritableLogStream();
-        $this->logComponent = $this->prepareLogComponent($this->writableLogStream);
-        $this->logSocket = $this->prepareLogSocket($this->loop, $this->configuration->getLogFile());
-        $this->logServer = $this->prepareLogServer(
-            $this->logSocket,
-            $this->loop,
-            $this->logComponent
-        );
-
         $this->notificationComponent = $this->prepareNotificationComponent();
         $this->webSocketSocket = $this->prepareWebSocketSocket($this->loop, $this->configuration->getWebSocketPort());
         $this->webSocketServer = $this->prepareWebSocketServer(
@@ -165,16 +157,46 @@ USAGE;
             $this->configuration->getServerOrigin()
         );
 
-        $this->writableLogStream->onNewError(
-            function (Documents\Error $error) {
-                $this->errorCollection->addError($error);
-                $this->notificationComponent->notifyNewError($error);
+        $this->logComponent = $this->prepareLogComponent();
+        $this->logSocket = $this->prepareLogSocket($this->loop, $this->configuration->getLogFile());
+        $this->logServer = $this->prepareLogServer(
+            $this->logSocket,
+            $this->loop,
+            $this->logComponent
+        );
+        $this->logComponent->onNewDocument(
+            function (Document $document) {
+                switch (true) {
+                    case $document instanceof ConnectionOpened:
+                        $this->documentCollection->openConnection($document);
+                        break;
+                    case $document instanceof ScriptStarted:
+                        $this->documentCollection->startScript($document);
+                        break;
+                    case $document instanceof Error:
+                        $this->documentCollection->addError($document);
+                        break;
+                    case $document instanceof ScriptEnded:
+                        $this->documentCollection->endScript($document);
+                        break;
+                    case $document instanceof ConnectionClosed:
+                        $this->documentCollection->closeConnection($document);
+                        break;
+                    default:
+                        $this->tracer->warning("Unhandled document type '{$document->getDocumentType()}'");
+
+                        return false;
+                }
+
+                $this->notificationComponent->notifyNewDocument($document);
+
+                return true;
             }
         );
 
         $this->httpSocket = $this->prepareHttpSocket($this->loop, $this->configuration->getHttpPort());
         $this->httpRequestHandler = $this->prepareHttpRequestHandler(
-            $this->errorCollection,
+            $this->documentCollection,
             $this->configuration->getServerOrigin()
         );
         $this->httpServer = $this->prepareHttpServer(
@@ -201,7 +223,6 @@ USAGE;
 
         $this->tracer->setup("Closing streams");
         $this->readableLogStream and $this->readableLogStream->close();
-        $this->writableLogStream and $this->writableLogStream->close();
 
         $this->tracer->setup("Flushing log file");
         $logFile = $this->configuration->getLogFile();
@@ -250,14 +271,13 @@ USAGE;
     }
 
     /**
-     * @param WritableLogStream $writableLogStream
      * @return Components\LogComponent
      */
-    private function prepareLogComponent(WritableLogStream $writableLogStream)
+    private function prepareLogComponent()
     {
         $this->tracer->setup("Preparing Log component");
 
-        return new Components\LogComponent($this->tracer->withComponent('LOGC'), $writableLogStream);
+        return new Components\LogComponent($this->tracer->withComponent('LOGC'));
     }
 
     /**
@@ -326,16 +346,6 @@ USAGE;
     }
 
     /**
-     * @return Components\WritableLogStream
-     */
-    private function prepareWritableLogStream()
-    {
-        $this->tracer->setup('Preparing Writable Log stream');
-
-        return new Components\WritableLogStream($this->tracer->withComponent('PHPE'));
-    }
-
-    /**
      * @param LoopInterface $loop
      * @param int $port
      * @return \React\Socket\Server
@@ -364,30 +374,23 @@ USAGE;
     }
 
     /**
-     * @param ErrorCollectionContract $errorCollection
+     * @param DocumentCollection $documentCollection
      * @param string $origin
      * @return HttpRequestHandler
      * @throws \Exception
      */
-    private function prepareHttpRequestHandler(ErrorCollectionContract $errorCollection, $origin = '')
+    private function prepareHttpRequestHandler(DocumentCollection $documentCollection, $origin = '')
     {
         $this->tracer->setup("Preparing HTTP request handler");
 
-        return HttpRequestHandler::create($errorCollection, $this->tracer->withComponent('HTTP'), $origin);
+        return HttpRequestHandler::create($documentCollection, $this->tracer->withComponent('HTTP'), $origin);
     }
 
     public function getMeta($host)
     {
         return [
-            'errors' => [
-                'count' => [
-                    'total' => count($this->errorCollection),
-                    'severities' => $this->errorCollection->getSeverityCounts(),
-                    'applications' => [],
-                    'hosts' => [],
-                    'sessionIds' => [],
-                    'locations' => []
-                ]
+            'documents' => [
+                'count' => count($this->documentCollection),
             ],
             'server' => [
                 'websocket' => [
@@ -413,7 +416,7 @@ USAGE;
         $oldMask = umask(0777);
         chmod($logFile, 0666);
         umask($oldMask);
-        
+
         return $socket;
     }
 
@@ -423,8 +426,11 @@ USAGE;
      * @param $logComponent
      * @return mixed
      */
-    private function prepareLogServer(\React\Socket\UnixServer $logSocket, LoopInterface $loop, LogComponent $logComponent)
-    {
+    private function prepareLogServer(
+        \React\Socket\UnixServer $logSocket,
+        LoopInterface $loop,
+        LogComponent $logComponent
+    ) {
         $this->tracer->setup("Preparing Log server");
 
         $logServer = new \Ratchet\Server\IoServer($logComponent, $logSocket, $loop);

@@ -4,13 +4,11 @@ namespace Webgraphe\Phollow;
 
 use Webgraphe\Phollow\Contracts\ErrorFilterContract;
 use Webgraphe\Phollow\Documents\Error;
+use Webgraphe\Phollow\Documents\ScriptEnded;
+use Webgraphe\Phollow\Documents\ScriptStarted;
 
 class ErrorHandler
 {
-    /** @var string|bool|null */
-    private $logFile;
-    /** @var string */
-    private $id;
     /** @var ErrorFilterContract|callable */
     private $errorFilter;
     /** @var string|null */
@@ -20,18 +18,22 @@ class ErrorHandler
     /** @var string */
     private $applicationName;
     /** @var string */
-    private $hostName;
-    /** @var string */
     private $errorReporting;
     /** @var Configuration */
     private $configuration;
+    /** @var ScriptStarted */
+    private $scriptStart;
+    /** @var \Closure|null */
+    private $errorHandler;
+    /** @var \Closure|null */
+    private $shutdownFunction;
 
     /**
      * @param Configuration $configuration
      */
     protected function __construct(Configuration $configuration)
     {
-        $this->id = sha1(uniqid(getmypid(), true));
+        $this->scriptStart = ScriptStarted::fromGlobals();
         $this->configuration = $configuration;
         $logFile = $configuration->getLogFile();
         if ($logFile && file_exists($logFile)) {
@@ -39,8 +41,9 @@ class ErrorHandler
             if (!$this->socket) {
                 trigger_error("Can't create socket for ErrorHandler; ($errno) $errstr");
             }
+        } else {
+            trigger_error("Log file '$logFile' not found");
         }
-        $this->hostName = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'CLI';
         $this->applicationName = 'PHP Application';
     }
 
@@ -66,20 +69,26 @@ class ErrorHandler
     public function register()
     {
         if ($this->socket) {
+            $this->writeToSocket(
+                $this->scriptStart->withApplicationName($this->applicationName)
+            );
+
             if (null !== $this->errorReporting) {
                 error_reporting($this->errorReporting);
                 ini_set('display_errors', 0);
             }
             set_error_handler(
-                function () {
+                $this->errorHandler = function () {
                     return $this(...func_get_args());
                 }
             );
             register_shutdown_function(
-                function () {
+                $this->shutdownFunction = function () {
                     if ($data = error_get_last()) {
-                        return $this->__invoke($data['type'], $data['message'], $data['file'], $data['line']);
+                        $this->__invoke($data['type'], "LAST: " . $data['message'], $data['file'], $data['line']);
                     }
+
+                    $this->writeToSocket(ScriptEnded::fromGlobal());
 
                     return false;
                 }
@@ -121,21 +130,7 @@ class ErrorHandler
             return false;
         }
 
-        $json = json_encode(
-            $error->withSessionId($this->getId())
-                ->withApplicationName($this->applicationName)
-                ->withHostName($this->hostName)
-        );
-
-        return (bool)fwrite($this->socket, $json . PHP_EOL);
-    }
-
-    /**
-     * @return string
-     */
-    public function getId()
-    {
-        return $this->id;
+        return (bool)$this->writeToSocket($error);
     }
 
     /**
@@ -177,6 +172,7 @@ class ErrorHandler
      */
     public function withApplicationName($name)
     {
+        $this->scriptStart->withApplicationName($name);
         $this->applicationName = $name;
 
         return $this;
@@ -197,5 +193,14 @@ class ErrorHandler
     public function getConfiguration()
     {
         return $this->configuration;
+    }
+
+    /**
+     * @param mixed|\JsonSerializable $data
+     * @return bool|int
+     */
+    private function writeToSocket($data)
+    {
+        return fwrite($this->socket, json_encode($data). PHP_EOL);
     }
 }

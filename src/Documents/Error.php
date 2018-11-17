@@ -2,17 +2,37 @@
 
 namespace Webgraphe\Phollow\Documents;
 
-use Webgraphe\Phollow\Contracts\ErrorContract;
 use Webgraphe\Phollow\Document;
 
-class Error extends Document implements ErrorContract
+class Error extends Document
 {
+    /** @var string */
     const TYPE_ERROR = 'error';
 
     /** @var int */
-    private static $nextId = 0;
+    const E_UNKNOWN = 0;
 
-    /** @var int TODO Does not belong here */
+    /** @var string[] */
+    const E_STRINGS = [
+        self::E_UNKNOWN => 'UNKNOWN',
+        E_ERROR => 'ERROR',
+        E_WARNING => 'WARNING',
+        E_PARSE => 'PARSE',
+        E_NOTICE => 'NOTICE',
+        E_CORE_ERROR => 'CORE_ERROR',
+        E_CORE_WARNING => 'CORE_WARNING',
+        E_COMPILE_ERROR => 'COMPILE_ERROR',
+        E_COMPILE_WARNING => 'COMPILE_WARNING',
+        E_USER_ERROR => 'USER_ERROR',
+        E_USER_WARNING => 'USER_WARNING',
+        E_USER_NOTICE => 'USER_NOTICE',
+        E_STRICT => 'STRICT',
+        E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
+        E_DEPRECATED => 'DEPRECATED',
+        E_USER_DEPRECATED => 'USER_DEPRECATED',
+    ];
+
+    /** @var int|null */
     private $id;
     /** @var string */
     private $message;
@@ -24,26 +44,8 @@ class Error extends Document implements ErrorContract
     private $line;
     /** @var string[] */
     private $trace;
-    /** @var string|null */
-    private $hostName;
-    /** @var string|null */
-    private $serverIp;
-    /** @var string|null */
-    private $remoteIp;
-    /** @var string|null */
-    private $sessionId;
     /** @var string \DateTime::ATOM format preferred */
     private $timestamp;
-    /** @var string */
-    private $applicationName;
-
-    public function __construct()
-    {
-        $this->id = self::$nextId++;
-        $this->hostName = self::arrayGet($_SERVER, 'HOSTNAME');
-        $this->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR');
-        $this->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR');
-    }
 
     /**
      * @param string $message
@@ -69,40 +71,16 @@ class Error extends Document implements ErrorContract
     }
 
     /**
-     * @param array|\ArrayAccess $data
-     * @param string $key
-     * @param mixed $default
-     * @return mixed
-     */
-    protected static function arrayGet($data, $key, $default = null)
-    {
-        return (is_array($data) || $data instanceof \ArrayAccess) && isset($data[$key]) ? $data[$key] : $default;
-    }
-
-    /**
      * @param array $data
-     * @return static|null
      */
-    public static function fromArray(array $data)
+    protected function loadData(array $data)
     {
-        if (!$data) {
-            return null;
-        }
-
-        $instance = new static;
-        $instance->timestamp = self::arrayGet($data, 'timestamp');
-        $instance->message = self::arrayGet($data, 'message');
-        $instance->sessionId = self::arrayGet($data, 'sessionId');
-        $instance->severityId = self::arrayGet($data, 'severityId');
-        $instance->file = self::arrayGet($data, 'file');
-        $instance->line = self::arrayGet($data, 'line');
-        $instance->trace = self::arrayGet($data, 'trace');
-        $instance->hostName = self::arrayGet($data, 'hostName');
-        $instance->applicationName = self::arrayGet($data, 'applicationName');
-        $instance->serverIp = self::arrayGet($data, 'serverIp');
-        $instance->remoteIp = self::arrayGet($data, 'remoteIp');
-
-        return $instance;
+        $this->timestamp = self::arrayGet($data, 'timestamp');
+        $this->message = self::arrayGet($data, 'message');
+        $this->severityId = self::arrayGet($data, 'severityId');
+        $this->file = self::arrayGet($data, 'file');
+        $this->line = self::arrayGet($data, 'line');
+        $this->trace = self::arrayGet($data, 'trace');
     }
 
     /**
@@ -142,39 +120,6 @@ class Error extends Document implements ErrorContract
     }
 
     /**
-     * @param string $id
-     * @return static
-     */
-    public function withSessionId($id)
-    {
-        $this->sessionId = $id;
-
-        return $this;
-    }
-
-    /**
-     * @param string $name
-     * @return static
-     */
-    public function withApplicationName($name)
-    {
-        $this->applicationName = $name;
-
-        return $this;
-    }
-
-    /**
-     * @param string $name
-     * @return static
-     */
-    public function withHostName($name)
-    {
-        $this->hostName = $name;
-
-        return $this;
-    }
-
-    /**
      * @return string
      */
     public function __toString()
@@ -197,17 +142,12 @@ class Error extends Document implements ErrorContract
         return [
             'id' => $this->id,
             'timestamp' => $this->timestamp,
-            'sessionId' => $this->sessionId,
             'message' => $this->message,
             'severityId' => $this->severityId,
             'severityName' => $this->getSeverityName(),
             'file' => $this->file,
             'line' => $this->line,
             'trace' => $this->trace,
-            'hostName' => $this->hostName,
-            'applicationName' => $this->applicationName,
-            'serverIp' => $this->serverIp,
-            'remoteIp' => $this->remoteIp,
         ];
     }
 
@@ -252,39 +192,9 @@ class Error extends Document implements ErrorContract
     }
 
     /**
-     * @return null|string
-     */
-    public function getHostName()
-    {
-        return $this->hostName;
-    }
-
-    /**
-     * @return null|string
-     */
-    public function getServerIp()
-    {
-        return $this->serverIp;
-    }
-
-    /**
-     * @return null|string
-     */
-    public function getRemoteIp()
-    {
-        return $this->remoteIp;
-    }
-
-    /**
-     * @return null|string
-     */
-    public function getSessionId()
-    {
-        return $this->sessionId;
-    }
-
-    /**
-     * @return int
+     * Mostly used by the ErrorCollection in the Application.
+     *
+     * @return int|null
      */
     public function getId()
     {

@@ -82,14 +82,14 @@ class Phollow {
             $('.header-bar').addClass('alert-danger');
         };
         this.ws.onmessage = function (message) {
+            console.log(message);
             try {
                 const document = JSON.parse(message.data);
                 const type = document['meta']['type'];
                 const data = document['data'];
-                console.log(document, type, data);
                 switch (type) {
                     case 'error':
-                        that.pushError(document['data']);
+                        that.pushError(data);
                         break;
                     default:
                         console.log("Unknown message type", type);

@@ -2,46 +2,85 @@
 
 namespace Webgraphe\Phollow\Components;
 
+use Evenement\EventEmitter;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
+use Webgraphe\Phollow\Contracts\OnNewDocumentContract;
+use Webgraphe\Phollow\DocumentFactory;
+use Webgraphe\Phollow\Documents\ConnectionClosed;
+use Webgraphe\Phollow\Documents\ConnectionOpened;
 use Webgraphe\Phollow\Tracer;
 
-class LogComponent implements MessageComponentInterface
+class LogComponent extends EventEmitter implements MessageComponentInterface
 {
+    /** @var string */
+    const EVENT_NEW_DOCUMENT = 'newDocument';
+
     /** @var Tracer */
     private $tracer;
-    /** @var WritableLogStream */
-    private $writableLogStream;
 
-    public function __construct(Tracer $tracer, WritableLogStream $writableLogStream)
+    public function __construct(Tracer $tracer)
     {
         $this->tracer = $tracer;
-        $this->writableLogStream = $writableLogStream;
     }
 
     /**
      * @param ConnectionInterface $conn
-     * @return false|string
+     * @return int
      */
-    public static function stringifyConnection(ConnectionInterface $conn)
+    public static function connectionResourceId(ConnectionInterface $conn)
     {
         /** @noinspection PhpUndefinedFieldInspection */
-        return $conn->remoteAddress ?: '#' . $conn->resourceId;
+        return (int)$conn->resourceId;
     }
 
     public function onOpen(ConnectionInterface $conn)
     {
-        $this->tracer->notice(self::stringifyConnection($conn) . ' Connected');
+        $resourceId = self::connectionResourceId($conn);
+        $this->tracer->notice("#{$resourceId} Connected");
+        $this->emit(
+            self::EVENT_NEW_DOCUMENT,
+            [ConnectionOpened::fromScriptId($resourceId)]
+        );
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $this->writableLogStream->write($msg);
+        foreach (explode(PHP_EOL, trim($msg)) as $line) {
+            $decoded = json_decode($line, true);
+            try {
+                if (json_last_error()) {
+                    throw new \Exception("Failed decoding data(" . json_last_error_msg() ."); " . $line);
+                }
+
+                if (!is_array($decoded)) {
+                    throw new \Exception("Illogical document decoded" . $line);
+                }
+
+                if ($document = DocumentFactory::fromArray($decoded)) {
+                    $this->emit(
+                        self::EVENT_NEW_DOCUMENT,
+                        [$document->withScriptId(self::connectionResourceId($from))]
+                    );
+                } else {
+                    throw new \Exception("Unhandled document message");
+                }
+            } catch (\Exception $e) {
+                $this->tracer->error($e->getMessage());
+            }
+        }
+
+        return true;
     }
 
     public function onClose(ConnectionInterface $conn)
     {
-        $this->tracer->notice(self::stringifyConnection($conn) . ' Disconnected');
+        $resourceId = self::connectionResourceId($conn);
+        $this->tracer->notice("#{$resourceId} Disconnected");
+        $this->emit(
+            self::EVENT_NEW_DOCUMENT,
+            [ConnectionClosed::fromScriptId($resourceId)]
+        );
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e)
@@ -49,5 +88,20 @@ class LogComponent implements MessageComponentInterface
         $this->tracer->error($e->getMessage());
 
         $conn->close();
+    }
+
+    /**
+     * @param OnNewDocumentContract|callable $callback
+     * @return static
+     */
+    public function onNewDocument(callable $callback)
+    {
+        try {
+            return $this->on(self::EVENT_NEW_DOCUMENT, $callback);
+        } catch (\Exception $e) {
+            $this->tracer->error($e->getMessage());
+        }
+
+        return $this;
     }
 }
