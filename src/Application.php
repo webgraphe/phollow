@@ -6,12 +6,7 @@ use Ratchet\ComponentInterface;
 use React\EventLoop\LoopInterface;
 use Webgraphe\Phollow\Components\HttpRequestHandler;
 use Webgraphe\Phollow\Components\LogComponent;
-use Webgraphe\Phollow\Documents\ConnectionClosed;
-use Webgraphe\Phollow\Documents\ConnectionOpened;
-use Webgraphe\Phollow\Documents\DocumentCollection;
-use Webgraphe\Phollow\Documents\Error;
-use Webgraphe\Phollow\Documents\ScriptEnded;
-use Webgraphe\Phollow\Documents\ScriptStarted;
+use Webgraphe\Phollow\Documents;
 
 class Application
 {
@@ -97,7 +92,7 @@ USAGE;
     {
         $this->configuration = $configuration ?: new Configuration;
         $this->tracer = $this->configuration->getTracer();
-        $this->documentCollection = DocumentCollection::create();
+        $this->documentCollection = Documents\DocumentCollection::create();
     }
 
     /**
@@ -167,19 +162,19 @@ USAGE;
         $this->logComponent->onNewDocument(
             function (Document $document) {
                 switch (true) {
-                    case $document instanceof ConnectionOpened:
+                    case $document instanceof Documents\ConnectionOpened:
                         $this->documentCollection->openConnection($document);
                         break;
-                    case $document instanceof ScriptStarted:
+                    case $document instanceof Documents\ScriptStarted:
                         $this->documentCollection->startScript($document);
                         break;
-                    case $document instanceof Error:
+                    case $document instanceof Documents\Error:
                         $this->documentCollection->addError($document);
                         break;
-                    case $document instanceof ScriptEnded:
+                    case $document instanceof Documents\ScriptEnded:
                         $this->documentCollection->endScript($document);
                         break;
-                    case $document instanceof ConnectionClosed:
+                    case $document instanceof Documents\ConnectionClosed:
                         $this->documentCollection->closeConnection($document);
                         break;
                     default:
@@ -230,13 +225,13 @@ USAGE;
     }
 
     /**
-     * @param string $errorLogFile
+     * @param string $file
      * @throws \Exception
      */
-    private function unlinkFile($errorLogFile)
+    private function unlinkFile($file)
     {
-        if (file_exists($errorLogFile) && !@unlink($errorLogFile)) {
-            throw new \Exception("Can't unlink $errorLogFile");
+        if (file_exists($file) && !@unlink($file)) {
+            throw new \Exception("Can't unlink $file");
         }
     }
 
@@ -374,16 +369,16 @@ USAGE;
     }
 
     /**
-     * @param DocumentCollection $documentCollection
+     * @param Documents\DocumentCollection $documents
      * @param string $origin
      * @return HttpRequestHandler
      * @throws \Exception
      */
-    private function prepareHttpRequestHandler(DocumentCollection $documentCollection, $origin = '')
+    private function prepareHttpRequestHandler(Documents\DocumentCollection $documents, $origin = '')
     {
         $this->tracer->setup("Preparing HTTP request handler");
 
-        return HttpRequestHandler::create($documentCollection, $this->tracer->withComponent('HTTP'), $origin);
+        return HttpRequestHandler::create($documents, $this->tracer->withComponent('HTTP'), $origin);
     }
 
     public function getMeta($host)

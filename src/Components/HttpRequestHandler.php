@@ -24,7 +24,7 @@ class HttpRequestHandler
     ];
 
     /** @var DocumentCollection */
-    private $errorCollection;
+    private $documentCollection;
     /** @var Tracer */
     private $tracer;
     /** @var \FastRoute\Dispatcher */
@@ -35,14 +35,14 @@ class HttpRequestHandler
     private $documentRoot;
 
     /**
-     * @param DocumentCollection $errorCollection
+     * @param DocumentCollection $documents
      * @param Tracer $tracer
      * @param string $documentRoot
      * @param string $origin
      */
-    protected function __construct(DocumentCollection $errorCollection, Tracer $tracer, $documentRoot, $origin = '')
+    protected function __construct(DocumentCollection $documents, Tracer $tracer, $documentRoot, $origin = '')
     {
-        $this->errorCollection = $errorCollection;
+        $this->documentCollection = $documents;
         $this->documentRoot = $documentRoot;
         $this->tracer = $tracer;
         $this->origin = $origin;
@@ -52,7 +52,7 @@ class HttpRequestHandler
                     '/data',
                     function (\FastRoute\RouteCollector $routes) {
                         $routes->get('/meta', $this->getMeta());
-                        $routes->get('/errors[/{id:\d+}]', $this->getDataErrors());
+                        $routes->get('/documents[/{id:\d+}]', $this->getDataDocuments());
                     }
                 );
             }
@@ -60,20 +60,20 @@ class HttpRequestHandler
     }
 
     /**
-     * @param DocumentCollection $errorCollection
+     * @param DocumentCollection $documents
      * @param Tracer $tracer
      * @param string $origin
      * @return static
      * @throws \Exception
      */
-    public static function create(DocumentCollection $errorCollection, Tracer $tracer, $origin = '')
+    public static function create(DocumentCollection $documents, Tracer $tracer, $origin = '')
     {
         $documentRoot = realpath(self::DOCUMENT_ROOT);
         if (!$documentRoot) {
             throw new \Exception("Can't resolve document root " . self::DOCUMENT_ROOT);
         }
 
-        $instance = new static($errorCollection, $tracer, $documentRoot, $origin);
+        $instance = new static($documents, $tracer, $documentRoot, $origin);
 
         return $instance;
     }
@@ -273,7 +273,7 @@ class HttpRequestHandler
     /**
      * @return \Closure
      */
-    private function getDataErrors()
+    private function getDataDocuments()
     {
         return function (
             /** @noinspection PhpUnusedParameterInspection */
@@ -281,11 +281,11 @@ class HttpRequestHandler
             $id = null
         ) {
             if (null === $id) {
-                return static::jsonResponse(200, ['data' => $this->errorCollection->getErrors()]);
+                return static::jsonResponse(200, ['data' => $this->documentCollection->getDocuments()]);
             }
 
-            if ($error = $this->errorCollection->getError($id)) {
-                return static::jsonResponse(200, $error);
+            if ($document = $this->documentCollection->getDocument($id)) {
+                return static::jsonResponse(200, $document);
             }
 
             return static::jsonResponse(404, []);

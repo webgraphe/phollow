@@ -132,6 +132,23 @@ class DocumentCollection extends Document implements \Countable
     }
 
     /**
+     * @return Document[]
+     */
+    public function getDocuments()
+    {
+        return $this->documents;
+    }
+
+    /**
+     * @param int $id
+     * @return Document|null
+     */
+    public function getDocument($id)
+    {
+        return isset($this->documents[$id]) ? $this->documents[$id] : null;
+    }
+
+    /**
      * @param array $data
      * @throws \Exception
      */
