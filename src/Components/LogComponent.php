@@ -69,8 +69,6 @@ class LogComponent extends EventEmitter implements MessageComponentInterface
                 $this->tracer->error($e->getMessage());
             }
         }
-
-        return true;
     }
 
     public function onClose(ConnectionInterface $conn)

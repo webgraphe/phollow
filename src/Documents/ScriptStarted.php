@@ -39,7 +39,7 @@ class ScriptStarted extends Document
         $instance->hostname = self::arrayGet($_SERVER, 'HTTP_HOST', 'localhost');
         $instance->script = self::arrayGet($_SERVER, 'SCRIPT_NAME');
         if (empty($_SERVER['HTTP_HOST'])) {
-            $instance->script = self::arrayGet($_SERVER, 'PWD') . DIRECTORY_SEPARATOR . $instance->script;
+            $instance->script = realpath($instance->script);
         }
         $instance->scriptFilename = realpath($_SERVER['SCRIPT_FILENAME']);
         $instance->path = $instance->script ?: $instance->scriptFilename;

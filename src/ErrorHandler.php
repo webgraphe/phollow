@@ -69,6 +69,9 @@ class ErrorHandler
         return new static($configuration ?: Configuration::fromGlobals());
     }
 
+    /**
+     * @return bool
+     */
     public function register()
     {
         if ($this->socket) {

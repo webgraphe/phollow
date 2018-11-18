@@ -8,6 +8,7 @@ use Webgraphe\Phollow\Tracer;
 
 class HttpRequestHandler
 {
+    /** @var string */
     const DOCUMENT_ROOT = __DIR__ . '/../../resources/public';
 
     /**
@@ -102,7 +103,7 @@ class HttpRequestHandler
             case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
                 return $this->serveHttpResponse($request, $this->methodNotAllowedResponse($method, $path));
             default:
-                return $this->serveHttpResponse($request, $routeInfo[1]($request, ... array_values($routeInfo[2])));
+                return $this->serveHttpResponse($request, $routeInfo[1]($request, ...array_values($routeInfo[2])));
         }
     }
 
@@ -177,7 +178,7 @@ class HttpRequestHandler
                 $sha1 = sha1($body);
                 if ($header = $request->getHeader('If-None-Match')) {
                     if (str_replace('"', '', $header[0]) === $sha1) {
-                        return self::cachedHttpResponse(304, null, ['ETag' => '"' . $sha1 .'"']);
+                        return self::cachedHttpResponse(304, null, ['ETag' => '"' . $sha1 . '"']);
                     }
                 }
 
@@ -186,7 +187,7 @@ class HttpRequestHandler
                     $body,
                     [
                         'Content-Type' => $contentType,
-                        'ETag' => '"' . $sha1 .'"'
+                        'ETag' => '"' . $sha1 . '"'
                     ]
                 );
             }
@@ -250,8 +251,10 @@ class HttpRequestHandler
      * @param \React\Http\Response $response
      * @return \React\Http\Response
      */
-    private function serveHttpResponse(\Psr\Http\Message\ServerRequestInterface $request, \React\Http\Response $response)
-    {
+    private function serveHttpResponse(
+        \Psr\Http\Message\ServerRequestInterface $request,
+        \React\Http\Response $response
+    ) {
         $code = $response->getStatusCode();
         $ip = $request->getServerParams()['REMOTE_ADDR'];
         $method = $request->getMethod();

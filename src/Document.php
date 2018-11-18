@@ -54,6 +54,9 @@ abstract class Document implements \JsonSerializable
         return (is_array($data) || $data instanceof \ArrayAccess) && isset($data[$key]) ? $data[$key] : $default;
     }
 
+    /**
+     * @return array
+     */
     final public function jsonSerialize()
     {
         return [

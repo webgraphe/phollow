@@ -47,6 +47,9 @@ class Application
     /** @var Documents\DocumentCollection */
     private $documentCollection;
 
+    /**
+     * @return string
+     */
     public static function usage()
     {
         $version = self::VERSION;
@@ -110,7 +113,7 @@ USAGE;
     }
 
     /**
-     * @return Application
+     * @return static
      */
     public static function getInstance()
     {
@@ -381,6 +384,10 @@ USAGE;
         return HttpRequestHandler::create($documents, $this->tracer->withComponent('HTTP'), $origin);
     }
 
+    /**
+     * @param string $host
+     * @return array
+     */
     public function getMeta($host)
     {
         return [

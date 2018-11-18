@@ -4,13 +4,20 @@ namespace Webgraphe\Phollow;
 
 class Configuration
 {
+    /** @var string */
     const DEFAULT_INI_FILE = 'phollow.ini';
+    /** @var string */
     const DEFAULT_LOG_FILE = '/tmp/phollow.sock';
 
+    /** @var string */
     const SETTING_COLORS = 'colors';
+    /** @var string */
     const SETTING_LOG_FILENAME = 'log.filename';
+    /** @var string */
     const SETTING_ORIGIN = 'origin';
+    /** @var string */
     const SETTING_HTTP_PORT = 'http.port';
+    /** @var string */
     const SETTING_WEBSOCKET_PORT = 'websocket.port';
 
     const DEFAULT_SETTINGS = [
@@ -21,6 +28,7 @@ class Configuration
         self::SETTING_WEBSOCKET_PORT => 8081,
     ];
 
+    /** @var string[] */
     const SETTING_DESCRIPTIONS = [
         self::SETTING_COLORS => 'Toggles use of CLI colors',
         self::SETTING_LOG_FILENAME => 'Dumps logs in file (default=' . self::DEFAULT_LOG_FILE . ')',

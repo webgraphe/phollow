@@ -1,6 +1,6 @@
 {
     "name": "webgraphe/phollow",
-    "description": "Live PHP Error Tracking",
+    "description": "Live PHP Script Monitoring",
     "type": "library",
     "version": "0.2.2",
     "config": {
