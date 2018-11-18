@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cc5d72a000d4af93d9dac9525e17030d",
+    "content-hash": "fd1cc3096e5b150b06498950997267d7",
     "packages": [
         {
             "name": "cboden/ratchet",
@@ -408,16 +408,16 @@
         },
         {
             "name": "react/dns",
-            "version": "v0.4.15",
+            "version": "v0.4.16",
             "source": {
                 "type": "git",
                 "url": "https://github.com/reactphp/dns.git",
-                "reference": "319e110a436d26a2fa137cfa3ef2063951715794"
+                "reference": "0a0bedfec72b38406413c6ea01e1c015bd0bf72b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/reactphp/dns/zipball/319e110a436d26a2fa137cfa3ef2063951715794",
-                "reference": "319e110a436d26a2fa137cfa3ef2063951715794",
+                "url": "https://api.github.com/repos/reactphp/dns/zipball/0a0bedfec72b38406413c6ea01e1c015bd0bf72b",
+                "reference": "0a0bedfec72b38406413c6ea01e1c015bd0bf72b",
                 "shasum": ""
             },
             "require": {
@@ -449,7 +449,7 @@
                 "dns-resolver",
                 "reactphp"
             ],
-            "time": "2018-07-02T12:17:56+00:00"
+            "time": "2018-11-11T11:21:13+00:00"
         },
         {
             "name": "react/event-loop",
