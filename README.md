@@ -41,6 +41,7 @@ ErrorHandler::create()->register();
 vendor/bin/phollow run --colors
 ```
 
-### Follow tracked errors in your browser
+### Monitor your PHP scripts in a browser
 
-Once server runs, hit the URL listed for the HTTP server. 
+Once server runs, hit the URL listed for the HTTP server. Run a PHP script that registers the error handler and
+_phollow_ the action :astonished:
