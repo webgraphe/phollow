@@ -42,7 +42,7 @@ class ScriptStarted extends Document
             $instance->script = realpath($instance->script);
         }
         $instance->scriptFilename = realpath($_SERVER['SCRIPT_FILENAME']);
-        $instance->path = $instance->script ?: $instance->scriptFilename;
+        $instance->path = self::arrayGet($_SERVER, 'REQUEST_URI', $instance->script ?: $instance->scriptFilename);
         $instance->serverIp = self::arrayGet($_SERVER, 'SERVER_ADDR', '127.0.0.1');
         $instance->remoteIp = self::arrayGet($_SERVER, 'REMOTE_ADDR', '127.0.0.1');
 
