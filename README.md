@@ -3,6 +3,8 @@
 [Phollow](https://github.com/webgraphe/phollow) (pronounced \\ˈfälō\\) is a lightweight PHP script monitoring utility 
 for developers running a server in the background to track your application's performance and errors.
 
+![Screenshot from Firefox](https://webgraphe.github.io/phollow-firefox.png)
+
 This library is **not ready for production** use and should ONLY be used for debugging purposes in a restricted
 development environment.
 
