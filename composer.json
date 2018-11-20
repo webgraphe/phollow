@@ -2,7 +2,7 @@
     "name": "webgraphe/phollow",
     "description": "Live PHP Script Monitoring",
     "type": "library",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "config": {
         "platform": {
             "php": "5.6.1"
