@@ -46,6 +46,8 @@ class Application
     private $logServer;
     /** @var Documents\DocumentCollection */
     private $documentCollection;
+    /** @var float */
+    private $startTime;
 
     /**
      * @return string
@@ -93,6 +95,7 @@ USAGE;
 
     public function __construct(Configuration $configuration = null)
     {
+        $this->startTime = microtime(true);
         $this->configuration = $configuration ?: new Configuration;
         $this->tracer = $this->configuration->getTracer();
         $this->documentCollection = Documents\DocumentCollection::create();
@@ -395,6 +398,13 @@ USAGE;
                 'count' => count($this->documentCollection),
             ],
             'server' => [
+                'info' => [
+                    'time' => microtime(true) - $this->startTime,
+                    'memory' => [
+                        'current' => memory_get_usage(true),
+                        'peak' => memory_get_peak_usage(true)
+                    ]
+                ],
                 'websocket' => [
                     'host' => $host,
                     'port' => $this->configuration->getWebSocketPort()

@@ -54,6 +54,7 @@ class HttpRequestHandler
                     function (\FastRoute\RouteCollector $routes) {
                         $routes->get('/meta', $this->getMeta());
                         $routes->get('/documents[/{id:\d+}]', $this->getDataDocuments());
+                        $routes->delete('/scripts/{id:\d+}', $this->deleteDataScript());
                     }
                 );
             }
@@ -289,6 +290,34 @@ class HttpRequestHandler
 
             if ($document = $this->documentCollection->getDocument($id)) {
                 return static::jsonResponse(200, $document);
+            }
+
+            return static::jsonResponse(404, []);
+        };
+    }
+
+    private function deleteDataScript()
+    {
+        return function (
+            /** @noinspection PhpUnusedParameterInspection */
+            \Psr\Http\Message\ServerRequestInterface $request,
+            $id = null
+        ) {
+            if ($forgotten = $this->documentCollection->forgetScript($id)) {
+                return static::jsonResponse(
+                    200,
+                    [
+                        'meta' => [
+                            'method' => $request->getMethod(),
+                            'path' => $request->getUri()->getPath(),
+                        ],
+                        'data' => [
+                            'documents' => [
+                                'forgotten' => $forgotten
+                            ]
+                        ]
+                    ]
+                );
             }
 
             return static::jsonResponse(404, []);

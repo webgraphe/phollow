@@ -128,7 +128,7 @@ class DocumentCollection extends Document implements \Countable
      */
     public function toArray()
     {
-        return $this->documents;
+        return $this->getDocuments();
     }
 
     /**
@@ -136,7 +136,7 @@ class DocumentCollection extends Document implements \Countable
      */
     public function getDocuments()
     {
-        return $this->documents;
+        return array_values($this->documents);
     }
 
     /**
@@ -146,6 +146,29 @@ class DocumentCollection extends Document implements \Countable
     public function getDocument($id)
     {
         return isset($this->documents[$id]) ? $this->documents[$id] : null;
+    }
+
+    /**
+     * @param int $id
+     * @return int The whole number of documents forgotten
+     */
+    public function forgetScript($id)
+    {
+        $count = 0;
+
+        if (!isset($this->scripts[$id]) || !isset($this->terminatedScripts[$id])) {
+            return $count;
+        }
+
+        foreach ($this->scripts[$id] as $documentId) {
+            unset($this->documents[$documentId]);
+            ++$count;
+        }
+
+        unset($this->scripts[$id]);
+        unset($this->terminatedScripts[$id]);
+
+        return $count;
     }
 
     /**
