@@ -23,11 +23,13 @@
             <strong>phollow</strong>
             <small class="badge badge-light" id="status"></small>
         </div>
+        <div class="col header-bar-content text-right">
+            <button id="button-forget" class="btn btn-primary disabled">Forget</button>
+        </div>
     </div>
     <div class="row main">
         <div class="col-xl-12 m-0 p-0 main-content" id="alerts"></div>
-        <div class="col-xl-12 m-0 p-0 main-content" id="script-container">
-        </div>
+        <div class="col-xl-12 m-0 p-0 main-content" id="script-container"></div>
     </div>
     <div class="row bg-light text-dark fixed-bottom footer-bar">
         <div class="col footer-bar-content">
@@ -101,8 +103,14 @@
            class="table table-sm table-borderless table-hover table-light small mb-0 script-table">
         <thead>
         <tr class="bg-warning text-light">
-            <th width="1px"><i class="fas fa-fw fa-stopwatch script-progress"></i></th>
-            <th width="1px" class="text-right"><samp title="Script ID" data-toggle="tooltip">#{{meta.scriptId}}</samp></th>
+            <th width="1px">
+                <i class="far fa-fw fa-lg fa-square text-white-50 checkbox-script"
+                   data-script-id="{{meta.scriptId}}"></i>
+            </th>
+            <th width="1px"><i class="fas fa-fw fa-lg fa-stopwatch script-progress"></i></th>
+            <th style="width:3rem" class="text-right">
+                <samp title="Script ID" data-toggle="tooltip">#{{meta.scriptId}}</samp>
+            </th>
             <th colspan="4">
                 <span class="float-right">
                     <span class="script-feedback"></span>
@@ -112,7 +120,8 @@
                           data-toggle="tooltip">
                     </span>
                 </span>
-                <span class="badge badge-secondary script-error-count" title="Error Count" data-toggle="tooltip">0</span>
+                <span class="badge badge-secondary script-error-count" title="Error Count"
+                      data-toggle="tooltip">0</span>
                 &nbsp;
                 <span class="badge badge-light script-api" title="Server API" data-toggle="tooltip">
                     <i class="fas fa-fw fa-ban text-muted"></i>
@@ -138,8 +147,7 @@
 
 <script id="template-script-data-element" type="text/x-handlebars-template">
     <tr class="table-{{state}}">
-        <td width="1px"></td>
-        <td width="1px" class="text-right"><samp title="Document ID" data-toggle="tooltip">#{{meta.id}}</samp></td>
+        <td colspan="3" class="text-right"><samp title="Document ID" data-toggle="tooltip">#{{meta.id}}</samp></td>
         <td width="1px"><samp>{{data.timestamp}}</samp></td>
         <td width="1px"><span class="badge badge-{{state}}">{{data.severityName}}</span></td>
         <td>{{data.message}}</td>

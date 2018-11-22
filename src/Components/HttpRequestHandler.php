@@ -312,6 +312,7 @@ class HttpRequestHandler
                             'path' => $request->getUri()->getPath(),
                         ],
                         'data' => [
+                            'scriptId' => $id,
                             'documents' => [
                                 'forgotten' => $forgotten
                             ]

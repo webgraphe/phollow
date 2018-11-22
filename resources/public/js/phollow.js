@@ -9,6 +9,7 @@ class Phollow {
         this.templateScriptDataElement = null;
         this.templateAlert = null;
         this.$scriptContainer = null;
+        this.$modalLoading = null;
         this.scriptElements = {};
     }
 
@@ -32,47 +33,40 @@ class Phollow {
                         $('#status').toggleClass('badge-light badge-warning').text('Connecting');
                         that.compileTemplates();
                         that.$scriptContainer = $('#script-container');
+                        that.$modalLoading = $('#modal-loading');
                     }
                 )
+                .then(() => Promise.all([$.ajax('data/meta'), $.ajax('data/documents')]))
                 .then(
-                    function () {
-                        return $.ajax('data/meta');
-                    }
-                )
-                .then(
-                    function (meta) {
-                        that.setMeta(meta.data);
-                    },
-                    function () {
-                        throw new Error("Failed fetching meta");
-                    }
-                )
-                .then(
-                    function () {
-                        return $.ajax('data/documents');
-                    }
-                )
-                .then(
-                    function (documents) {
-                        let $progressBar = $('#modal-loading-progress-bar');
-                        let count = documents['data'].length;
+                    (data) => {
+                        that.setMeta(data[0].data);
+                        let count = data[1].data.length;
                         for (let i = 0; i < count; ++i) {
-                            that.processDocument(documents['data'][i]);
-                            $progressBar.css('width', (i * 100 / count) + '%');
+                            that.processDocument(data[1].data[i]);
                         }
+                        $('#modal-loading-progress-bar').css('width', '100%');
                     },
                     function () {
-                        throw new Error("Failed fetching data");
+                        throw new Error("Failed fetching meta and/or documents");
                     }
                 )
-                .then(
-                    function () {
-                        that.prepareWs();
-                    }
-                )
+                .then(() => that.prepareWs())
                 .then(
                     function () {
                         $(document)
+                            .on(
+                                'click',
+                                'i.checkbox-script',
+                                function () {
+                                    let $this = $(this);
+                                    if (!$this.hasClass('text-white-50')) {
+                                        $(this).toggleClass('fa-square fa-check-square');
+                                    }
+                                    Phollow.invalidateInputs();
+
+                                    return false;
+                                }
+                            )
                             .on(
                                 'click',
                                 '.script-table thead',
@@ -119,13 +113,53 @@ class Phollow {
                                     $('#modal-error').modal('show');
                                 }
                             );
-                        $(function () {
-                            $('body').tooltip(
-                                {
-                                    selector: '[data-toggle="tooltip"]'
+                        $('#button-forget').on(
+                            'click',
+                            function () {
+                                if ($(this).hasClass('disabled') || !confirm('Are you sure?')) {
+                                    return;
                                 }
-                            );
-                        })
+
+                                $.when()
+                                    .then(
+                                        () => new Promise(
+                                            (resolve) => that.$modalLoading.one('shown.bs.modal', resolve).modal('show')
+                                        )
+                                    )
+                                    .then(
+                                        () => $('i.checkbox-script.fa-check-square').map(
+                                            (_, element) => $(element).data('script-id')
+                                        ).get()
+                                    )
+                                    .then(
+                                        (scriptIds) => Promise.all(
+                                            scriptIds.map(
+                                                (scriptId) => $.ajax(
+                                                    {
+                                                        url: 'data/scripts/' + scriptId,
+                                                        method: 'DELETE'
+                                                    }
+                                                )
+                                            )
+                                        )
+                                    )
+                                    .then(
+                                        (responses) => responses.map(
+                                            (response) => {
+                                                let scriptId = response['data']['scriptId'];
+                                                $('table.script-table[data-script-id="' + scriptId + '"]').remove();
+                                            }
+                                        )
+                                    )
+                                    .then(() => Phollow.invalidateInputs())
+                                    .then(() => setTimeout(() => that.$modalLoading.modal('hide'), 250));
+                            }
+                        );
+                        $('body').tooltip(
+                            {
+                                selector: '[data-toggle="tooltip"]'
+                            }
+                        );
                     }
                 )
                 .then(
@@ -137,11 +171,15 @@ class Phollow {
                             function () {
                                 $('#modal-loading').modal('hide');
                             },
-                            500
+                            250
                         );
                     }
-                );
-        } catch (e) {
+                )
+            ;
+        }
+
+        catch
+            (e) {
             this.pushAlert('danger', 'Initialization exception', e);
         }
     }
@@ -176,6 +214,11 @@ class Phollow {
             Phollow.setTitle(0);
             $('#status').toggleClass('badge-success badge-danger').text('Disconnected');
             $('.header-bar').addClass('alert-danger');
+            $('i.checkbox-script')
+                .toggleClass('fa-check-square', false)
+                .toggleClass('fa-square', true)
+                .toggleClass('text-white-50', true);
+            $('#button-forget').toggleClass('disabled', true);
         };
         this.ws.onmessage = function (message) {
             try {
@@ -211,6 +254,7 @@ class Phollow {
             method: $scriptTable.find('.script-method'),
             path: $scriptTable.find('.script-path'),
             time: $scriptTable.find('.script-time'),
+            checkbox: $scriptTable.find('.checkbox-script'),
             feedback: $scriptTable.find('.script-feedback'),
         };
         this.$scriptContainer.append($scriptTable);
@@ -285,6 +329,7 @@ class Phollow {
         if (!scriptElement.errorCount) {
             scriptElement.errorCountBadge.toggleClass('badge-secondary badge-success');
         }
+        scriptElement.checkbox.toggleClass('text-white-50');
 
         return true;
     }
@@ -351,12 +396,16 @@ class Phollow {
 
         return false;
     }
+
+    static invalidateInputs() {
+        $('#button-forget').toggleClass('disabled', 0 === $('.checkbox-script.fa-check-square').length);
+    }
 }
 
 $(function () {
     let phollow = (new Phollow);
     $('#modal-loading')
-        .on(
+        .one(
             'shown.bs.modal',
             function () {
                 phollow.run();
