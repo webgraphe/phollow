@@ -11,7 +11,7 @@ use Webgraphe\Phollow\Documents;
 class Application
 {
     /** @var string */
-    const VERSION = '0.2.3';
+    const VERSION = '0.2.4';
     /** @var string */
     const DEFAULT_ROUTE_IP = '0.0.0.0';
 
